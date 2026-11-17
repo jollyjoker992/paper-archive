@@ -30,7 +30,9 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -312,10 +314,35 @@ def save_pdf(doc: str, out: str | None) -> Path:
     binary_ref = binary_id(ref["content"][0]["attachment"].get("url", ""))
     if not binary_ref:
         fail("this document has no stored scan")
-    binary = get(f"/fhir/R4/Binary/{binary_ref}")
     target = Path(out) if out else CACHE_DIR / "pdf" / f"{identifier(ref, 'paper-document')}.pdf"
-    write_private(target, base64.b64decode(binary["data"]))
+    write_private(target, download(f"/fhir/R4/Binary/{binary_ref}"))
     return target
+
+
+def download(path: str) -> bytes:
+    """A Binary's content. Asked for as the file itself (not as FHIR JSON), Medplum returns the bytes."""
+    agent = client()
+    for attempt in (1, 2):
+        agent._token = agent._token or agent._token_request()
+        request = urllib.request.Request(agent.url + path, headers={
+            "Authorization": f"Bearer {agent._token}", "Accept": "application/pdf, application/octet-stream, */*"})
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                data = response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401 and attempt == 1:                 # cached token revoked or expired early
+                agent._token = ""
+                (CACHE_DIR / "medplum-agent-token.json").unlink(missing_ok=True)
+                continue
+            fail(f"GET {path}: HTTP {exc.code}")
+        except (urllib.error.URLError, OSError) as exc:
+            fail(f"GET {path}: {exc} (is Medplum at {SERVER} running?)")
+        if data.startswith(b"{"):                                 # FHIR JSON after all: inline base64 data
+            data = base64.b64decode(json.loads(data).get("data") or b"")
+        if not data:
+            fail(f"GET {path}: empty")
+        return data
+    raise AssertionError("unreachable")
 
 
 def main(argv: list[str]) -> int:
