@@ -17,7 +17,7 @@ ERROR, WARNING, INFO = "error", "warning", "info"
 # ---------------------------------------------------------------- schema
 
 S, I = "str", "int"
-DATE, WHEN = "date", "when"
+DATE, WHEN, MONTH = "date", "when", "month"
 ROW = {"section": S, "name": (S, True), "analyte": S, "value": (S, True), "unit": S, "reference": S, "flag": S,
        "alt_value": S, "alt_reference": S, "specimen": S, "method": S, "note": S, "page": I}
 VITALS = {k: S for k in ("pulse", "blood_pressure", "temperature", "height", "weight", "bmi")}
@@ -29,6 +29,12 @@ STUDY = {"key": S, "procedure": (S, True), "indication": S, "technique": S, "fin
 VISIT_SECTIONS = ("reason", "medications", "family_history", "past_history", "allergies", "examination", "tests",
                   "diagnosis", "advice")
 VISIT = {k: S for k in VISIT_SECTIONS}
+GIVEN = ("yes", "no", "unknown")
+DOSE = {"vaccine": (S, True), "key": S, "disease": S, "dose_number": S, "date": WHEN, "lot": S, "expiry": MONTH,
+        "manufacturer": S, "country": S, "route": S, "site": S, "dose_quantity": S, "given_by": S, "facility": S,
+        "next_due": DATE, "given": GIVEN, "note": S, "page": I}
+DUE = {"vaccine": (S, True), "key": S, "disease": S, "dose_number": S, "date": (DATE, True), "note": S, "page": I}
+VACCINATION = {"screening": S, "dose_unit": S, "doses": [DOSE], "due": [DUE]}
 SCHEMA = {
     "format": (S, True),
     "document": ({"type": (DOCUMENT_TYPES, True), "language": S, "title": S, "document_number": S, "pages": I}, True),
@@ -36,7 +42,7 @@ SCHEMA = {
                  "patient_number": S}, True),
     "facility": ({"name": (S, True), "department": S, "address": S}, True),
     "staff": {"ordered_by": S, "performed_by": S, "signed_by": S},
-    "dates": ({"collected": WHEN, "received": WHEN, "performed": WHEN, "reported": WHEN}, True),
+    "dates": {"collected": WHEN, "received": WHEN, "performed": WHEN, "reported": WHEN},
     "extracted_by": ({"agent": (S, True), "model": S}, True),
     "vitals": VITALS,
     "uncertain": [{"path": (S, True), "reason": (S, True)}],
@@ -45,9 +51,10 @@ SCHEMA = {
     "ecg": ECG,
     "study": STUDY,
     "visit": VISIT,
+    "vaccination": VACCINATION,
 }
 BODY = {"lab-report": "results", "ecg": "ecg", "ultrasound": "study", "xray": "study", "endoscopy": "study",
-        "visit": "visit"}
+        "visit": "visit", "vaccination": "vaccination"}
 
 
 def clean(value):
@@ -70,6 +77,16 @@ def parse_when(text: str):
     except ValueError:
         pass
     return None
+
+
+def parse_month(text: str) -> bool:
+    """'YYYY-MM' or 'YYYY-MM-DD' (an expiry date is often printed as month and year)."""
+    try:
+        if re.fullmatch(r"\d{4}-\d{2}", text):
+            return 1 <= int(text[5:]) <= 12
+        return re.fullmatch(r"\d{4}-\d{2}-\d{2}", text) is not None and bool(dt.date.fromisoformat(text))
+    except ValueError:
+        return False
 
 
 def _check_schema(value, spec, path: str, issues: list) -> None:
@@ -108,6 +125,9 @@ def _check_schema(value, spec, path: str, issues: list) -> None:
         parsed = parse_when(value) if isinstance(value, str) else None
         if parsed is None or (spec == DATE and isinstance(parsed, dt.datetime)):
             bad("must be YYYY-MM-DD" + ("" if spec == DATE else " or YYYY-MM-DDTHH:MM (local time, no offset)"))
+    elif spec == MONTH:
+        if not (isinstance(value, str) and parse_month(value)):
+            bad("must be YYYY-MM or YYYY-MM-DD")
 
 
 def issue(level: str, code: str, path: str, message: str) -> dict:
@@ -232,7 +252,7 @@ def validate(raw: dict, person: dict | None = None, today: dt.date | None = None
         issues.append(issue(ERROR, "E-FORMAT", "format", f"must be {EXTRACTION_FORMAT!r}"))
     dtype = (doc.get("document") or {}).get("type")
     parsed = {"type": dtype, "doc": doc, "results": [], "measurements": [], "ecg": {}, "study": None, "dates": {},
-              "vitals": {}}
+              "vitals": {}, "doses": [], "due": []}
     if any(i["level"] == ERROR for i in issues) or dtype not in BODY:
         return issues, parsed
 
@@ -243,7 +263,8 @@ def validate(raw: dict, person: dict | None = None, today: dt.date | None = None
     if body not in doc:
         issues.append(issue(ERROR, "E-BODY", body, f"a {dtype} needs '{body}'"))
 
-    parsed["dates"] = _check_dates(doc, dtype, person, today or dt.date.today(), issues)
+    today = today or dt.date.today()
+    parsed["dates"] = _check_dates(doc, dtype, person, today, issues)
     _check_patient(doc, person, parsed["dates"], issues)
     parsed["vitals"] = _check_vitals(doc.get("vitals", {}), issues)
     for i, entry in enumerate(doc.get("uncertain", [])):
@@ -259,6 +280,9 @@ def validate(raw: dict, person: dict | None = None, today: dt.date | None = None
         _cross_checks(parsed["results"], issues)
     elif dtype == "ecg":
         parsed["ecg"] = _check_ecg(doc.get("ecg", {}), issues)
+    elif dtype == "vaccination":
+        parsed["doses"], parsed["due"] = _check_vaccination(doc.get("vaccination", {}), parsed["dates"], person,
+                                                            today, issues)
     elif dtype == "visit":
         visit = doc.get("visit", {})
         if not visit:
@@ -310,7 +334,8 @@ def _check_patient(doc: dict, person: dict | None, dates: dict, issues: list) ->
 
 
 def _check_dates(doc: dict, dtype: str, person: dict | None, today: dt.date, issues: list) -> dict:
-    dates = {k: parse_when(v) for k, v in doc["dates"].items()}
+    printed = doc.get("dates", {})
+    dates = {k: parse_when(v) for k, v in printed.items()}
 
     def day(value):
         return value.date() if isinstance(value, dt.datetime) else value
@@ -318,23 +343,35 @@ def _check_dates(doc: dict, dtype: str, person: dict | None, today: dt.date, iss
     order = ["collected", "received", "performed", "reported"]
     wanted = ("collected", "received", "reported") if dtype == "lab-report" else ("performed", "reported")
     effective = next((k for k in wanted if k in dates), None)
-    if not effective:
+    first_dose = None
+    if not effective and dtype == "vaccination":
+        # A booklet has no date of its own: every dose has one, and the first is the document's date.
+        # A dose with no date at all is reported by _check_vaccination.
+        doses = (doc.get("vaccination") or {}).get("doses") or []
+        if doses and all("date" in d for d in doses):
+            first_dose = min((d["date"] for d in doses), key=lambda t: (t[:10], t))
+            effective = "first_dose"
+        elif not doses:
+            issues.append(issue(ERROR, "E-DATE-MISSING", "dates", "a vaccination document without doses needs "
+                                "performed or reported"))
+    elif not effective:
         issues.append(issue(ERROR, "E-DATE-MISSING", "dates",
                             f"a {dtype} needs one of: {', '.join(wanted)}"))
     birth = person.get("birth_date") if person else None
     for key, value in dates.items():
         if day(value) > today:
-            issues.append(issue(ERROR, "E-DATE-FUTURE", f"dates.{key}", f"{doc['dates'][key]} is in the future"))
+            issues.append(issue(ERROR, "E-DATE-FUTURE", f"dates.{key}", f"{printed[key]} is in the future"))
         if birth and day(value) < dt.date.fromisoformat(str(birth)):
             issues.append(issue(ERROR, "E-DATE-BEFORE-BIRTH", f"dates.{key}",
-                                f"{doc['dates'][key]} is before the birth date {birth}"))
+                                f"{printed[key]} is before the birth date {birth}"))
     present = [k for k in order if k in dates]
     for a, b in zip(present, present[1:]):
         both_times = isinstance(dates[a], dt.datetime) and isinstance(dates[b], dt.datetime)
         if (dates[a] > dates[b]) if both_times else (day(dates[a]) > day(dates[b])):
             issues.append(issue(ERROR, "E-DATE-ORDER", f"dates.{b}",
-                                f"{b} ({doc['dates'][b]}) is before {a} ({doc['dates'][a]})"))
-    return {"effective": effective, **{k: doc["dates"][k] for k in dates}}
+                                f"{b} ({printed[b]}) is before {a} ({printed[a]})"))
+    return {"effective": effective, **{k: printed[k] for k in dates},
+            **({"first_dose": first_dose} if first_dose else {})}
 
 
 def _check_vitals(vitals: dict, issues: list) -> dict:
@@ -648,6 +685,142 @@ def _check_study(study: dict, dtype: str, issues: list) -> dict | None:
         issues.append(issue(WARNING, "W-NO-CONCLUSION", "study.impression",
                             "no impression/conclusion transcribed: confirm the paper has none"))
     return entry
+
+
+def parse_dose_quantity(text: str) -> dict | None:
+    """'0,5 ml' -> 0.5 mL (number and a unit units.json knows), else None."""
+    m = re.fullmatch(rf"\s*({_NUM})\s*([^\d\s].*?)\s*", text)
+    if not m:
+        return None
+    number, unit = parse_number(m.group(1)), m.group(2)
+    code = catalog.ucum(unit)
+    return {"number": number["number"], "decimals": number["decimals"], "unit": unit, "ucum": code} if code else None
+
+
+def _check_vaccine_key(entry_in: dict, add) -> dict | None:
+    """Which vaccine a dose or an appointment is: its catalog entry (coded), or None. Adds the key issues."""
+    coded, uncoded = catalog.vaccines(), catalog.vaccines_not_coded()
+    printed, key = entry_in["vaccine"], entry_in.get("key")
+    entry = coded.get(key) if key else None
+    best = max([*coded.values(), *uncoded.values()], key=lambda e: name_score(printed, e), default=None)
+    best_score = name_score(printed, best) if best else 0
+    if key and not entry and key not in uncoded:
+        add(ERROR, "E-VACCINE-UNKNOWN", "key", f"{key!r} is not a vaccine catalog key (see: catalog find --vaccine)")
+    elif key in uncoded:
+        add(INFO, "I-UNCODED", "key", f"known to the catalog as not coded ({uncoded[key]['reason']}): stored with "
+            "its printed name only")
+    elif entry and not name_matches(f"{printed} {entry_in.get('disease', '')}", entry):
+        add(WARNING, "W-VACCINE-UNLISTED", "key",
+            f"neither the printed name nor the disease is among the catalog names of {key!r}: confirm it is the "
+            "same vaccine, then add the spelling to the catalog")
+    elif entry and best is not entry and best_score > name_score(printed, entry):
+        add(WARNING, "W-VACCINE-UNLISTED", "key", f"the printed name fits {best['key']!r} better than {key!r}")
+    elif not key:
+        if best_score:
+            add(WARNING, "W-VACCINE-AVAILABLE", "key", f"no key given but the catalog has {best['key']!r}")
+        else:
+            add(INFO, "I-UNCODED", "key", "not in the vaccine catalog: stored with its printed name only, no CVX")
+    return entry
+
+
+def _expiry_end(text: str) -> dt.date:
+    """Last day an expiry is valid: '2026-02' -> 2026-02-28."""
+    if len(text) == 10:
+        return dt.date.fromisoformat(text)
+    year, month = int(text[:4]), int(text[5:7])
+    return dt.date(year + month // 12, month % 12 + 1, 1) - dt.timedelta(days=1)
+
+
+def _check_vaccination(vaccination: dict, dates: dict, person: dict | None, today: dt.date,
+                       issues: list) -> tuple[list[dict], list[dict]]:
+    """The doses of a vaccination slip, booklet or certificate, and its appointments for other vaccines. Whether
+    a dose was given is the owner's answer (`given`), never read from the paper: a slip shows an order, not a shot."""
+    uncoded = catalog.vaccines_not_coded()
+    doses, appointments = vaccination.get("doses", []), vaccination.get("due", [])
+    if not doses and not appointments:
+        issues.append(issue(ERROR, "E-EMPTY", "vaccination.doses", "a vaccination document has at least one dose"))
+    birth = dt.date.fromisoformat(str(person["birth_date"])) if person and person.get("birth_date") else None
+    document_date = dates.get(dates.get("effective") or "") if dates.get("effective") != "first_dose" else None
+    unit = vaccination.get("dose_unit")
+    out, slugs, seen = [], {}, {}
+
+    def slug_for(item, prefix=""):
+        base = prefix + (item["key"] or catalog.slug(item["vaccine"]) or "dose")
+        slugs[base] = slugs.get(base, 0) + 1
+        return base if slugs[base] == 1 else f"{base}-{slugs[base]}"
+
+    for i, dose in enumerate(doses):
+        path = f"vaccination.doses[{i}]"
+
+        def add(level, code, field, message):
+            issues.append(issue(level, code, f"{path}.{field}", f"{dose['vaccine']}: {message}"))
+
+        key = dose.get("key")
+        entry = _check_vaccine_key(dose, add)
+        item = {"index": i, "vaccine": dose["vaccine"], "key": key if (entry or key in uncoded) else None,
+                "code": entry, "given": dose.get("given"), "date": dose.get("date") or document_date,
+                "quantity": None,
+                **{k: dose.get(k) for k in ("disease", "dose_number", "lot", "expiry", "manufacturer", "country",
+                                            "route", "site", "dose_quantity", "given_by", "facility", "next_due",
+                                            "note")}}
+        out.append(item)
+
+        # given: the owner's answer
+        if "given" not in dose:
+            add(ERROR, "E-DOSE-UNCONFIRMED", "given",
+                "ask the owner whether this dose was given (yes, no or unknown); the paper does not decide it")
+        elif dose["given"] == "unknown":
+            add(INFO, "I-DOSE-ORDERED", "given", "stored as an order (MedicationRequest), not as a vaccination given")
+
+        # dates
+        when = parse_when(item["date"]) if item["date"] else None
+        day = when.date() if isinstance(when, dt.datetime) else when
+        if not item["date"]:
+            add(ERROR, "E-DATE-MISSING", "date", "no date on the dose and no document date (dates.performed or reported)")
+        elif "date" in dose:
+            if day > today and dose.get("given") != "unknown":
+                add(ERROR, "E-DATE-FUTURE", "date", f"{dose['date']} is in the future")
+            if birth and day < birth:
+                add(ERROR, "E-DATE-BEFORE-BIRTH", "date", f"{dose['date']} is before the birth date {birth}")
+        if day and "next_due" in dose and dt.date.fromisoformat(dose["next_due"]) <= day:
+            add(ERROR, "E-DATE-ORDER", "next_due", f"next dose {dose['next_due']} is not after this dose ({item['date']})")
+        if day and "expiry" in dose and _expiry_end(dose["expiry"]) < day:
+            add(WARNING, "W-DOSE-EXPIRED", "expiry", f"expiry {dose['expiry']} is before the dose date ({item['date']}): "
+                "a misread expiry or date, or the paper is wrong")
+
+        # amount; a bare number takes the unit printed in the column header ('Liều lượng (ml)')
+        if "dose_quantity" in dose:
+            printed = dose["dose_quantity"]
+            bare = re.fullmatch(rf"\s*{_NUM}\s*", printed) is not None
+            item["quantity"] = parse_dose_quantity(f"{printed} {unit}" if bare and unit else printed)
+            if not item["quantity"]:
+                add(INFO, "I-DOSE-TEXT", "dose_quantity", f"{printed!r} is not a number with a known unit"
+                    + (" (no vaccination.dose_unit for a bare number)" if bare else "") + ": kept as a note")
+
+        same = (item["key"] or catalog.slug(dose["vaccine"]), str(day))
+        if day and same in seen:
+            add(WARNING, "W-DOSE-REPEATED", "vaccine", f"the same vaccine on the same day as doses[{seen[same]}]: "
+                "one row read twice, or a different vaccine")
+        seen.setdefault(same, i)
+        item["slug"] = slug_for(item)
+
+    due = []
+    for i, entry_in in enumerate(appointments):
+        path = f"vaccination.due[{i}]"
+
+        def add(level, code, field, message):
+            issues.append(issue(level, code, f"{path}.{field}", f"{entry_in['vaccine']}: {message}"))
+
+        key = entry_in.get("key")
+        entry = _check_vaccine_key(entry_in, add)
+        item = {"index": i, "vaccine": entry_in["vaccine"], "key": key if (entry or key in uncoded) else None,
+                "code": entry, **{k: entry_in.get(k) for k in ("disease", "dose_number", "date", "note")}}
+        day = dt.date.fromisoformat(entry_in["date"])
+        if birth and day < birth:
+            add(ERROR, "E-DATE-BEFORE-BIRTH", "date", f"{entry_in['date']} is before the birth date {birth}")
+        item["slug"] = slug_for(item, "due-")
+        due.append(item)
+    return out, due
 
 
 def summary(issues: list[dict]) -> dict:

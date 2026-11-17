@@ -1,6 +1,6 @@
 ---
 name: paper-catalog
-description: Add or change entries in paper-archive's terminology catalog - a lab test, a printed spelling, a unit, an echo measurement, an imaging or endoscopy study - with LOINC codes verified against the NLM API. Use when validation reports I-UNCODED, W-NAME-UNLISTED, E-UNIT-UNKNOWN or E-UNIT-ANALYTE for something that is read correctly, or when the user asks to code a test.
+description: Add or change entries in paper-archive's terminology catalog - a lab test, a printed spelling, a unit, an echo measurement, an imaging or endoscopy study, a vaccine - with LOINC codes verified against the NLM API and CVX codes against the CDC list. Use when validation reports I-UNCODED, W-NAME-UNLISTED, W-VACCINE-UNLISTED, E-UNIT-UNKNOWN or E-UNIT-ANALYTE for something that is read correctly, or when the user asks to code a test or a vaccine.
 ---
 
 # Changing the catalog
@@ -15,6 +15,7 @@ only that the owner confirmed it is the same test.
 | `analytes.json` | Measured quantities: blood tests (`domain` absent = blood), urine strip (`urine`), echo (`echo`). |
 | `units.json` | Printed unit → UCUM. Case matters (`G/L` ≠ `g/L`). |
 | `codes.json` | Document types, ECG measurements, vital signs, narrative sections, studies. |
+| `vaccines.json` | Vaccines → CVX codes, and vaccines deliberately not coded (`not_coded`, with the reason). |
 
 ## Add a printed spelling
 
@@ -66,3 +67,23 @@ index). If you are not sure of the UCUM spelling, look it up in the UCUM specifi
 Entries in `codes.json` → `studies`: `key`, `type` (`ultrasound`, `xray`, `endoscopy`), `loinc`, `names`, and
 `use` when a more general entry exists. Same verification. A study that has no exact code stays unkeyed: it
 is stored under the generic code of its document type with its printed name.
+
+## Add a vaccine
+
+Entries in `vaccines.json` → `vaccines` (one per line): `key`, `cvx`, `display`, `names` (printed product and
+vaccine names), `diseases`, and `use` when the choice of code needs explaining.
+
+1. Find candidates in the CDC CVX list (`https://www2a.cdc.gov/vaccines/iis/iisstandards/downloads/cvx.txt`,
+   pipe-separated: code, short description, full name, notes, status, non-vaccine). Read the **full name**:
+   it often names the product (146 is Vaxelis, PRP-OMP), which makes it a near miss for another product with
+   the same antigens.
+2. Take a code only when its full name describes this vaccine. Non-US codes (170 Pentaxim, 198 DTwP-HepB-Hib)
+   and inactive codes are valid. When the printed name cannot tell formulations apart (hemisphere, valency,
+   adult vs paediatric dose), use the "unspecified formulation" code of that vaccine. When nothing fits, add it
+   to `not_coded` with `names` and a `reason`.
+3. A name is matched as whole words: never add a phrase that fits two vaccines (`5 trong 1`), and check
+   `catalog find "<name>" --vaccine` shows only the entry you mean.
+4. `python3 tools/cvx_check.py --fix` writes CVX's short description as the display and fails on unknown
+   codes or non-vaccines. Read the full name it prints for your new codes.
+5. Bump `version` in `vaccines.json`, run the tests, and `map`.
+

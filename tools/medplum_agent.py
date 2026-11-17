@@ -13,6 +13,9 @@ repository's .env), whose access policy allows reading and searching only.
     python3 tools/medplum_agent.py results QUERY [--person P] [--from ...] [--to ...]
                                                          one test over time; QUERY is a catalog key (ldl, hba1c),
                                                          a LOINC code, or words of the printed name
+    python3 tools/medplum_agent.py vaccinations [--person P] [--from ...] [--to ...]
+                                                         every vaccine dose, oldest first: given, not given, or only
+                                                         ordered; and the next doses printed as due
     python3 tools/medplum_agent.py pdf DOC [--out FILE]  save the scan of a document (default .cache/pdf/DOC.pdf)
 
 PERSON is a Patient id, a paper user id or a name; it can be left out when there is only one person.
@@ -42,6 +45,9 @@ from paperarchive import DEFAULT_BASE, catalog, load  # noqa: E402
 
 CACHE_DIR = REPO / ".cache"
 LOINC = "http://loinc.org"
+CVX = "http://hl7.org/fhir/sid/cvx"
+DOSE_KINDS = {"paper-immunization": "Immunization", "paper-medication-request": "MedicationRequest",
+              "paper-recommendation": "ImmunizationRecommendation"}
 
 
 def read_env() -> dict[str, str]:
@@ -260,10 +266,65 @@ def document(doc: str) -> dict:
     composition = next(iter(search("Composition", identifier=f"{system('paper-composition')}|{doc_id}")), None)
     if composition:
         out["sections"] = {s["title"]: s["text"]["div"] for s in composition.get("section") or []}
+    subject = (ref.get("subject") or {}).get("reference", "")
+    if subject.startswith("Patient/") and (ref.get("type") or {}).get("text") == "Vaccination record":
+        found = (search("Immunization", patient=subject) + search("MedicationRequest", subject=subject)
+                 + search("ImmunizationRecommendation", patient=subject))
+        out["doses"] = sorted((row for row in map(dose_row, found) if row["document"] == doc_id),
+                              key=lambda r: r.get("date") or "")
     vitals = [o for o in observations if (identifier(o, "paper-observation") or "").startswith("vital/")]
     out["results"] = [result_row(o) for o in observations if o not in vitals]
     out["vital_signs"] = [result_row(o) for o in vitals]
     return out
+
+
+# --- vaccinations ------------------------------------------------------------------------------------
+
+def vaccine_of(concept: dict) -> dict:
+    coding = next((c for c in concept.get("coding") or [] if c.get("system") == CVX), None)
+    return {"vaccine": concept.get("text") or (coding or {}).get("display"), "cvx": (coding or {}).get("code")}
+
+
+def dose_row(resource: dict) -> dict:
+    """One dose (Immunization), order (MedicationRequest) or next dose due (ImmunizationRecommendation)."""
+    rtype = resource.get("resourceType")
+    kind = next(k for k, t in DOSE_KINDS.items() if t == rtype)
+    doc = (identifier(resource, kind) or "").split("/")[0] or None
+    if rtype == "Immunization":
+        applied = (resource.get("protocolApplied") or [{}])[0]
+        row = {"date": resource.get("occurrenceDateTime"), **vaccine_of(resource.get("vaccineCode") or {}),
+               "status": {"completed": "given", "not-done": "not given"}.get(resource.get("status"), resource.get("status")),
+               "dose": applied.get("doseNumberString"),
+               "disease": ((applied.get("targetDisease") or [{}])[0]).get("text"),
+               "lot": resource.get("lotNumber"),
+               "given_by": next((p["actor"].get("display") for p in resource.get("performer") or []
+                                 if p.get("function")), None),
+               "facility": next((p["actor"].get("display") for p in resource.get("performer") or []
+                                 if not p.get("function") and p["actor"].get("display")), None)}
+    elif rtype == "MedicationRequest":
+        row = {"date": resource.get("authoredOn"), **vaccine_of(resource.get("medicationCodeableConcept") or {}),
+               "status": "ordered, not known whether given",
+               "dose": ((resource.get("dosageInstruction") or [{}])[0]).get("text")}
+    else:
+        rec = (resource.get("recommendation") or [{}])[0]
+        row = {"date": ((rec.get("dateCriterion") or [{}])[0]).get("value"),
+               **vaccine_of((rec.get("vaccineCode") or [{}])[0]),
+               "status": "appointment (printed)" if (rec.get("description") or "").startswith("Appointment")
+               else "next dose due (printed)", "dose": rec.get("doseNumberString"),
+               "disease": (rec.get("targetDisease") or {}).get("text"),
+               "printed_on": resource.get("date")}
+    return {**{k: v for k, v in row.items() if v is not None}, "document": doc}
+
+
+def vaccinations(person: str | None, start: str | None, end: str | None) -> dict:
+    patient = patient_of(person)
+    ref = f"Patient/{patient['patient']}"
+    found = (search("Immunization", patient=ref) + search("MedicationRequest", subject=ref)
+             + search("ImmunizationRecommendation", patient=ref))
+    rows = [dose_row(r) for r in found if any(identifier(r, k) for k in DOSE_KINDS)]
+    rows = [r for r in rows if in_range(r.get("date") or "", start, end)]
+    rows.sort(key=lambda r: r.get("date") or "")
+    return {"person": patient["paper_user_id"], "doses": rows}
 
 
 # --- one test over time ------------------------------------------------------------------------------
@@ -368,6 +429,8 @@ def main(argv: list[str]) -> int:
         result = document(positional)
     elif cmd == "results":
         result = results(positional, opt("--person"), opt("--from"), opt("--to"))
+    elif cmd == "vaccinations":
+        result = vaccinations(opt("--person"), opt("--from"), opt("--to"))
     elif cmd == "pdf":
         print(save_pdf(positional, opt("--out")))
         return 0

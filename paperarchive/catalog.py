@@ -1,4 +1,4 @@
-"""The terminology catalog: analytes, units, ECG and imaging codes (paperarchive/catalog/*.json)."""
+"""The terminology catalog: analytes, units, ECG and imaging codes, vaccines (paperarchive/catalog/*.json)."""
 from __future__ import annotations
 
 import json
@@ -38,8 +38,18 @@ def studies() -> dict[str, dict]:
     return {s["key"]: s for s in codes()["studies"]}
 
 
+def vaccines() -> dict[str, dict]:
+    """Coded vaccines by key."""
+    return {v["key"]: v for v in _load("vaccines.json")["vaccines"]}
+
+
+def vaccines_not_coded() -> dict[str, dict]:
+    """Vaccines the catalog knows and deliberately does not code ('reason' says why)."""
+    return {v["key"]: v for v in _load("vaccines.json")["not_coded"]}
+
+
 def catalog_version() -> str:
-    return f'{_load("analytes.json")["version"]}+{codes()["version"]}'
+    return f'{_load("analytes.json")["version"]}+{codes()["version"]}+{_load("vaccines.json")["version"]}'
 
 
 _SUPERSCRIPT = str.maketrans({"µ": "u", "μ": "u", "²": "2", "³": "3", "⁹": "9", "⁶": "6", "¹": "1", "×": "x"})
@@ -66,7 +76,8 @@ def analyte_code(key: str, unit: str | None) -> dict | None:
 def find(text: str, kind: str = "analyte") -> list[dict]:
     """Catalog entries whose key or printed names match the text (exact first, then partial)."""
     needle = fold(text)
-    entries = list(analytes().values()) if kind == "analyte" else codes()["studies"]
+    entries = {"analyte": lambda: list(analytes().values()), "study": lambda: codes()["studies"],
+               "vaccine": lambda: [*vaccines().values(), *vaccines_not_coded().values()]}[kind]()
     exact, partial = [], []
     for entry in entries:
         names = [fold(n) for n in [entry["key"], *entry["names"]]]

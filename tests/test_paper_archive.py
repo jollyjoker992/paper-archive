@@ -93,7 +93,8 @@ class Parsing(unittest.TestCase):
 
 class Rules(unittest.TestCase):
     def test_fixtures_are_clean(self):
-        for name in ("lab-report", "lab-report-columns", "ecg", "ultrasound", "xray", "echo", "visit"):
+        for name in ("lab-report", "lab-report-columns", "ecg", "ultrasound", "xray", "echo", "visit", "vaccination",
+                     "vaccination-booklet", "vaccination-card"):
             issues, _ = check(fixture(name))
             self.assertEqual(codes(issues, "error") + codes(issues, "warning"), [], name)
         self.assertEqual(codes(check(fixture("endoscopy"))[0], "warning"), ["W-VITAL-UNUSABLE"])
@@ -252,6 +253,98 @@ class Rules(unittest.TestCase):
         self.assertIn("W-STUDY-AVAILABLE", codes(check(doc)[0]))
         del doc["study"]["impression"]
         self.assertIn("W-NO-CONCLUSION", codes(check(doc)[0]))
+
+
+class Vaccination(unittest.TestCase):
+    def dose(self, index=0, name="vaccination", **changes):
+        doc = fixture(name)
+        for key, value in changes.items():
+            if value is None:
+                doc["vaccination"]["doses"][index].pop(key, None)
+            else:
+                doc["vaccination"]["doses"][index][key] = value
+        return check(doc)
+
+    def test_given_is_the_owners_answer(self):
+        issues, parsed = self.dose(given=None)
+        self.assertEqual(codes(issues, "error"), ["E-DOSE-UNCONFIRMED"])
+        self.assertEqual([d["given"] for d in parsed["doses"]], [None, "unknown"])
+        self.assertEqual(codes(self.dose(given="probably")[0], "error"), ["E-SCHEMA"])
+        self.assertIn("I-DOSE-ORDERED", codes(check(fixture("vaccination"))[0], "info"))
+
+    def test_vaccine_assignment(self):
+        self.assertEqual(codes(self.dose(key="hpv10")[0], "error"), ["E-VACCINE-UNKNOWN"])
+        issues, _ = self.dose(key="hpv4")                               # 'Gardasil 9' is not Gardasil (4)
+        self.assertEqual(codes(issues, "warning"), ["W-VACCINE-UNLISTED"])
+        self.assertIn("'hpv9' better", next(i["message"] for i in issues if i["code"] == "W-VACCINE-UNLISTED"))
+        self.assertEqual(codes(self.dose(key="pcv13")[0], "warning"), ["W-VACCINE-UNLISTED"])
+        self.assertEqual(codes(self.dose(key=None, vaccine="Prevenar 13")[0], "warning"), ["W-VACCINE-AVAILABLE"])
+        issues, parsed = self.dose(key=None, vaccine="Vắc xin Ví Dụ", disease="")
+        self.assertEqual(codes(issues, "warning"), [])
+        self.assertIn("I-UNCODED", codes(issues, "info"))
+        self.assertIsNone(parsed["doses"][0]["code"])
+        _, parsed = check(fixture("vaccination-booklet"))
+        self.assertEqual([d["code"] and d["code"]["cvx"] for d in parsed["doses"]], ["35", "35", "45", None])
+
+    def test_dates(self):
+        self.assertEqual(codes(self.dose(date="2027-01-05")[0], "error"), ["E-DATE-FUTURE"])
+        self.assertEqual(codes(self.dose(1, date="2027-01-05")[0], "error"), [])      # an order for a later day
+        self.assertEqual(codes(self.dose(date="1980-01-01")[0], "error"), ["E-DATE-BEFORE-BIRTH"])
+        self.assertEqual(codes(self.dose(next_due="2026-09-01")[0], "error"), ["E-DATE-ORDER"])
+        self.assertEqual(codes(self.dose(expiry="08/2027")[0], "error"), ["E-SCHEMA"])
+        self.assertEqual(codes(self.dose(expiry="2027-13")[0], "error"), ["E-SCHEMA"])
+        _, parsed = check(fixture("vaccination"))
+        self.assertEqual(parsed["doses"][0]["date"], "2026-10-02T08:30")          # the slip's date
+        _, parsed = check(fixture("vaccination-booklet"))                         # a booklet has none of its own
+        self.assertEqual(parsed["dates"], {"effective": "first_dose", "first_dose": "2010-05-04"})
+        issues, _ = self.dose(2, name="vaccination-booklet", date=None)
+        self.assertEqual([i["path"] for i in issues if i["code"] == "E-DATE-MISSING"], ["vaccination.doses[2].date"])
+
+    def test_doses(self):
+        doc = fixture("vaccination")
+        doc["vaccination"]["doses"] = []
+        self.assertEqual(codes(check(doc)[0], "error"), ["E-EMPTY"])
+        doc = fixture("vaccination-booklet")
+        doc["vaccination"]["doses"][1]["date"] = "2010-05-04"
+        self.assertEqual(codes(check(doc)[0], "warning"), ["W-DOSE-REPEATED"])
+        issues, parsed = self.dose(dose_quantity="1 liều")
+        self.assertIn("I-DOSE-TEXT", codes(issues, "info"))
+        self.assertIsNone(parsed["doses"][0]["quantity"])
+        self.assertEqual(self.dose()[1]["doses"][0]["quantity"]["ucum"], "mL")
+
+    def test_card_columns(self):
+        # 'Liều lượng (ml)': the unit is printed once, in the column header
+        _, parsed = self.dose(name="vaccination-card")
+        self.assertEqual(parsed["doses"][0]["quantity"]["number"], 0.5)
+        doc = fixture("vaccination-card")
+        del doc["vaccination"]["dose_unit"]
+        issues, parsed = check(doc)
+        self.assertIn("no vaccination.dose_unit", next(i["message"] for i in issues if i["code"] == "I-DOSE-TEXT"))
+        self.assertIsNone(parsed["doses"][0]["quantity"])
+        # an expiry before the day of the shot is a misread (or a wrong paper)
+        issues, _ = self.dose(name="vaccination-card", expiry="2024-02")
+        self.assertEqual(codes(issues, "warning"), ["W-DOSE-EXPIRED"])
+        self.assertEqual(codes(self.dose(name="vaccination-card", expiry="2025-09")[0], "warning"), [])  # to month end
+        # Td is not Tdap
+        self.assertEqual(codes(self.dose(1, name="vaccination-card", key="tdap")[0], "warning"), ["W-VACCINE-UNLISTED"])
+
+    def test_appointments(self):
+        issues, parsed = check(fixture("vaccination-card"))
+        self.assertEqual([(d["slug"], d["code"]["cvx"], d["date"]) for d in parsed["due"]],
+                         [("due-dengue", "330", "2025-10-23")])
+        doc = fixture("vaccination-card")
+        doc["vaccination"]["due"][0].update(key=None)
+        self.assertEqual(codes(check(doc)[0], "warning"), ["W-VACCINE-AVAILABLE"])
+        doc["vaccination"]["due"][0].update(key="dengue", date="1980-01-01")
+        self.assertEqual(codes(check(doc)[0], "error"), ["E-DATE-BEFORE-BIRTH"])
+        del doc["vaccination"]["due"][0]["date"]
+        self.assertEqual(codes(check(doc)[0], "error"), ["E-SCHEMA"])
+        # a card with appointments only is not empty, but it needs a date of its own
+        doc = fixture("vaccination-card")
+        doc["vaccination"]["doses"] = []
+        self.assertEqual(codes(check(doc)[0], "error"), ["E-DATE-MISSING"])
+        doc["dates"] = {"reported": "2025-09-23"}
+        self.assertEqual(codes(check(doc)[0], "error"), [])
 
 
 class Archive(unittest.TestCase):
@@ -552,6 +645,99 @@ class Archive(unittest.TestCase):
         self.assertIn("<br/>", composition["section"][5]["text"]["div"])
         self.assertEqual(reference["context"]["related"][0]["reference"].split("?")[0], "Composition")
         self.assertEqual(len([r for r in res if r["resourceType"] == "Observation"]), 6)        # the six vital signs
+
+    def test_vaccination_mapping(self):
+        doc = self.add("vaccination")
+        self.map()
+        res = self.resources(doc)
+        self.assertEqual([r["resourceType"] for r in res],
+                         ["DocumentReference", "Immunization", "ImmunizationRecommendation", "MedicationRequest",
+                          "Observation", "Observation", "Observation"])
+        reference, imm, rec, order = res[:4]
+        self.assertEqual(reference["type"]["coding"][0]["code"], "87273-9")
+        self.assertEqual([r["reference"].split("?")[0] for r in reference["context"]["related"]],
+                         ["Immunization", "ImmunizationRecommendation", "MedicationRequest"])
+        self.assertEqual(imm["status"], "completed")
+        self.assertEqual(imm["vaccineCode"], {"coding": [{"system": fhir.CVX, "code": "165", "display": "HPV9"}],
+                                              "text": "Gardasil 9 (0,5ml)"})
+        self.assertEqual(imm["occurrenceDateTime"], "2026-10-02T08:30:00+07:00")
+        self.assertEqual((imm["lotNumber"], imm["expirationDate"]), ("X012345", "2027-08"))
+        self.assertEqual(imm["doseQuantity"], {"value": 0.5, "unit": "ml", "system": fhir.UCUM, "code": "mL"})
+        self.assertEqual(imm["protocolApplied"], [{"targetDisease": [{"text": "HPV"}], "doseNumberString": "Mũi 2"}])
+        self.assertEqual(imm["performer"][1]["actor"], {"display": "ĐD. Lê Thị Mẫu"})
+        self.assertIn({"text": "Pre-vaccination screening: Đủ điều kiện tiêm chủng ngay"}, imm["note"])
+        self.assertEqual(rec["recommendation"][0]["dateCriterion"][0]["value"], "2027-04-02")
+        self.assertEqual(rec["recommendation"][0]["dateCriterion"][0]["code"]["coding"][0]["code"], "30980-7")
+        self.assertEqual((order["status"], order["intent"]), ("unknown", "order"))
+        self.assertEqual(order["medicationCodeableConcept"]["coding"][0]["code"], "88")
+        self.assertEqual(order["requester"], {"display": "BS. Nguyễn Văn Mẫu"})
+
+        booklet = self.add("vaccination-booklet")
+        self.map()
+        res = {r["identifier"][0]["value"].split("/")[-1]: r for r in self.resources(booklet)}
+        self.assertEqual(res[booklet.id]["context"]["period"], {"start": "2010-05-04"})
+        self.assertEqual(res["hepb"]["performer"], [{"actor": {"display": "Bệnh viện Ví Dụ"}}])
+        self.assertEqual(res["dtap-ipv-hib-hepb"]["status"], "not-done")
+        self.assertEqual(res["dtap-ipv-hib-hepb"]["vaccineCode"], {"text": "Hexaxim"})
+        self.assertEqual(res["tetanus-2"]["occurrenceDateTime"], "2010-06-08")
+
+    def test_same_booklet_photographed_twice(self):
+        first = self.add("vaccination-booklet")
+        second = self.add("vaccination-booklet", approve=False, photo="-again")
+        self.assertEqual(codes(self.checked(second)[0], "error"), ["E-DUPLICATE-DOCUMENT"])
+        changed = fixture("vaccination-booklet")
+        changed["vaccination"]["doses"][2]["lot"] = "AB12"
+        third = self.add("vaccination-booklet", approve=False, photo="-third", content=changed)
+        self.assertEqual(codes(self.checked(third)[0], "warning"), ["W-POSSIBLE-DUPLICATE"])
+        self.assertIn(first.id, next(i["message"] for i in self.checked(third)[0] if i["code"] == "W-POSSIBLE-DUPLICATE"))
+
+    def test_same_shot_on_two_papers(self):
+        booklet = self.add("vaccination-booklet")
+        self.assertEqual(codes(self.checked(booklet)[0], "warning"), [])
+        card = fixture("vaccination-card")
+        card["vaccination"]["doses"][1].update(vaccine="Uốn ván hấp phụ", key="tetanus", date="2010-06-08")
+        card = self.add("vaccination-card", approve=False, content=card)
+        issues, _ = self.checked(card)
+        self.assertEqual([(i["code"], i["path"]) for i in issues if i["level"] == "warning"],
+                         [("W-DOSE-ELSEWHERE", "vaccination.doses[1]")])
+        self.assertIn(f"doses[1] of {booklet.id}", next(i["message"] for i in issues if i["code"] == "W-DOSE-ELSEWHERE"))
+        self.assertEqual(codes(self.checked(booklet)[0], "warning"), ["W-DOSE-ELSEWHERE"])     # either may be first
+        # a booklet photographed twice is one duplicate document, not one warning per dose
+        again = self.add("vaccination-booklet", approve=False, photo="-again")
+        issues, _ = self.checked(again)
+        self.assertEqual(codes(issues, "error"), ["E-DUPLICATE-DOCUMENT"])
+        self.assertEqual([i["message"].split(" of ")[1][:len(card.id)] for i in issues if i["code"] == "W-DOSE-ELSEWHERE"],
+                         [card.id])                                       # the card's shot, not the first booklet's
+        self.assertNotIn(again.id, " ".join(i["message"] for i in self.checked(booklet)[0]))
+
+    def test_vaccination_review(self):
+        doc = self.add("vaccination", approve=False)
+        text = cli.review_compact(doc, *self.checked(doc))
+        self.assertIn("#0 2026-10-02T08:30 Gardasil 9 (0,5ml) (disease HPV, dose_number Mũi 2, lot X012345", text)
+        self.assertIn("-> CVX 165 HPV9; Immunization completed; next dose due", text)
+        self.assertIn("-> CVX 88 influenza, unspecified formulation; order only (MedicationRequest)", text)
+        card = self.add("vaccination-card", approve=False)
+        text = cli.review_compact(card, *self.checked(card))
+        self.assertIn("country Pháp", text)
+        self.assertIn("due#0 2025-10-23 SXH -> CVX 330 Dengue fever, unspecified; appointment", text)
+
+    def test_vaccination_card_mapping(self):
+        doc = self.add("vaccination-card")
+        self.map()
+        res = self.resources(doc)
+        self.assertEqual([r["resourceType"] for r in res],
+                         ["DocumentReference", "Immunization", "ImmunizationRecommendation", "Immunization",
+                          "ImmunizationRecommendation", "ImmunizationRecommendation"])
+        flu, td, dengue = res[1], res[3], res[5]
+        self.assertEqual(flu["doseQuantity"]["value"], 0.5)
+        self.assertNotIn("manufacturer", flu)                         # 'Nước sản xuất' is a country, not a maker
+        self.assertIn({"text": "Country of manufacture: Pháp"}, flu["note"])
+        self.assertEqual(td["vaccineCode"]["coding"][0]["code"], "139")
+        self.assertEqual(dengue["identifier"][0]["value"], f"{doc.id}/due-dengue")
+        self.assertEqual(dengue["date"], "2020-10-05")                 # the card's first dose
+        self.assertEqual(dengue["recommendation"][0]["vaccineCode"][0]["coding"][0]["code"], "330")
+        self.assertEqual(dengue["recommendation"][0]["dateCriterion"][0]["value"], "2025-10-23")
+        self.assertEqual(len(res[0]["context"]["related"]), 5)
 
     def test_mapping_is_repeatable(self):
         doc = self.add("lab-report")

@@ -16,12 +16,16 @@ from . import MAPPING_VERSION, catalog, duplicates, extraction, store
 
 LOINC = "http://loinc.org"
 UCUM = "http://unitsofmeasure.org"
+CVX = "http://hl7.org/fhir/sid/cvx"
+PERFORMER_FUNCTION = "http://terminology.hl7.org/CodeSystem/v2-0443"
+RECOMMENDATION_STATUS = "http://terminology.hl7.org/CodeSystem/immunization-recommendation-status"
 OBS_CATEGORY = "http://terminology.hl7.org/CodeSystem/observation-category"
 INTERPRETATION = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation"
 SERVICE_SECTION = "http://terminology.hl7.org/CodeSystem/v2-0074"
 SECTION = {"lab-report": "LAB", "ecg": "EC", "ultrasound": "RUS", "xray": "RX"}      # endoscopy: no v2-0074 code
 TYPE_TEXT = {"lab-report": "Laboratory report", "ecg": "Electrocardiogram", "ultrasound": "Ultrasound report",
-             "xray": "X-ray report", "endoscopy": "Endoscopy report", "visit": "Outpatient visit note"}
+             "xray": "X-ray report", "endoscopy": "Endoscopy report", "visit": "Outpatient visit note",
+             "vaccination": "Vaccination record"}
 OBS_KIND = {"lab-report": "laboratory", "ecg": "procedure", "ultrasound": "imaging", "xray": "imaging",
             "endoscopy": "procedure"}
 VISIT_TITLES = {"reason": "Reason for visit", "medications": "Current medications", "family_history": "Family history",
@@ -265,6 +269,98 @@ class DocumentMapper:
         reference["context"]["related"] = [self.ref("Composition", "paper-composition", self.doc.id)]
         return out
 
+    # -- vaccination ---------------------------------------------------------------
+
+    def vaccination(self, reference: dict) -> list[dict]:
+        """Per dose, by the owner's answer: given -> Immunization completed, not given -> Immunization not-done,
+        not known -> MedicationRequest (the order the paper shows). A printed next appointment, of a dose or for
+        another vaccine -> ImmunizationRecommendation."""
+        screening = self.x["vaccination"].get("screening")
+        ordered_by = self.x.get("staff", {}).get("ordered_by")
+        out = []
+
+        def vaccine_code(item):
+            if not item["code"]:
+                return {"text": item["vaccine"]}
+            return {"coding": [{"system": CVX, "code": item["code"]["cvx"], "display": item["code"]["display"]}],
+                    "text": item["vaccine"]}
+
+        def recommendation(ident, printed_on, code, due, description, disease=None, dose_number=None):
+            rec = {"vaccineCode": [code], "forecastStatus": {"coding": [{
+                       "system": RECOMMENDATION_STATUS, "code": "due", "display": "Due"}]},
+                   "dateCriterion": [{"code": loinc(catalog.codes()["immunization"]["date_due"]), "value": due}],
+                   "description": description}
+            if disease:
+                rec["targetDisease"] = {"text": disease}
+            if dose_number:
+                rec["doseNumberString"] = dose_number
+            return {"resourceType": "ImmunizationRecommendation",
+                    "identifier": self.ident("paper-recommendation", ident), "patient": self.patient,
+                    "date": printed_on, "authority": self.org, "recommendation": [rec]}
+
+        for dose in self.parsed["doses"]:
+            ident = f"{self.doc.id}/{dose['slug']}"
+            code = vaccine_code(dose)
+            when = self.when(dose["date"])
+            notes = [f"Pre-vaccination screening: {screening}" if screening else None,
+                     f"Dose: {dose['dose_quantity']}" if dose["dose_quantity"] and not dose["quantity"] else None,
+                     f"Country of manufacture: {dose['country']}" if dose["country"] else None,
+                     f"Disease: {dose['disease']}" if dose["disease"] and not dose["dose_number"] else None,
+                     dose["note"]]
+            if dose["given"] in ("yes", "no"):
+                notes.insert(0, "Given: confirmed by the owner at review" if dose["given"] == "yes" else
+                             "Not given: stated by the owner at review")
+                imm = {"resourceType": "Immunization", "identifier": self.ident("paper-immunization", ident),
+                       "status": "completed" if dose["given"] == "yes" else "not-done", "vaccineCode": code,
+                       "patient": self.patient, "occurrenceDateTime": when}
+                if dose["manufacturer"]:
+                    imm["manufacturer"] = {"display": dose["manufacturer"]}
+                if dose["lot"]:
+                    imm["lotNumber"] = dose["lot"]
+                if dose["expiry"]:
+                    imm["expirationDate"] = dose["expiry"]
+                for key in ("site", "route"):
+                    if dose[key]:
+                        imm[key] = {"text": dose[key]}
+                if dose["quantity"]:
+                    q = dose["quantity"]
+                    imm["doseQuantity"] = {"value": number(q["number"], q["decimals"]), "unit": q["unit"],
+                                           "system": UCUM, "code": q["ucum"]}
+                imm["performer"] = [{"actor": {"display": dose["facility"]} if dose["facility"] else self.org}]
+                if dose["given_by"]:
+                    imm["performer"].append({"function": {"coding": [{"system": PERFORMER_FUNCTION, "code": "AP",
+                                                                      "display": "Administering Provider"}]},
+                                             "actor": {"display": dose["given_by"]}})
+                imm["note"] = [{"text": n} for n in notes if n]
+                if dose["dose_number"]:
+                    applied = {"doseNumberString": dose["dose_number"]}
+                    if dose["disease"]:
+                        applied = {"targetDisease": [{"text": dose["disease"]}], **applied}
+                    imm["protocolApplied"] = [applied]
+                out.append(imm)
+            else:
+                notes.insert(0, "Ordered on this paper; whether it was given is not known")
+                request = {"resourceType": "MedicationRequest", "identifier": self.ident("paper-medication-request", ident),
+                           "status": "unknown", "intent": "order", "medicationCodeableConcept": code,
+                           "subject": self.patient, "authoredOn": when}
+                if ordered_by:
+                    request["requester"] = {"display": ordered_by}
+                request["note"] = [{"text": n} for n in notes if n]
+                instruction = ", ".join(filter(None, [dose["dose_number"], dose["disease"], dose["dose_quantity"],
+                                                      dose["route"], dose["site"]]))
+                if instruction:
+                    request["dosageInstruction"] = [{"text": instruction}]
+                out.append(request)
+            if dose["next_due"]:
+                out.append(recommendation(ident, when, code, dose["next_due"], "Next dose as printed on the paper"))
+        for due in self.parsed["due"]:
+            out.append(recommendation(f"{self.doc.id}/{due['slug']}", self.effective, vaccine_code(due), due["date"],
+                                      "Appointment as printed on the paper" + (f": {due['note']}" if due["note"] else ""),
+                                      due["disease"], due["dose_number"]))
+        reference["context"]["related"] = [self.ref(r["resourceType"], ident_of(r)["system"].rsplit("/", 1)[1],
+                                                    ident_of(r)["value"]) for r in out]
+        return out
+
     @property
     def signer(self) -> str | None:
         staff = self.x.get("staff", {})
@@ -302,6 +398,8 @@ class DocumentMapper:
                                             "value": x["document"]["document_number"]})
         if self.type == "visit":
             return [reference, *self.visit(reference), *self.vitals()]
+        if self.type == "vaccination":
+            return [reference, *self.vaccination(reference), *self.vitals()]
 
         conclusion = {"lab-report": self.lab, "ecg": self.ecg}.get(self.type, self.study)()
         reference["context"]["related"] = [self.ref("DiagnosticReport", "paper-report", self.doc.id)]

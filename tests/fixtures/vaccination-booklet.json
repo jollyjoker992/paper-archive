@@ -1,0 +1,57 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "vaccination",
+  "language": "vi",
+  "title": "SỔ TIÊM CHỦNG",
+  "pages": 2
+ },
+ "patient": {
+  "name": "Trần Thị Ví Dụ",
+  "birth_year": 1985
+ },
+ "facility": {
+  "name": "Trạm Y tế Phường Ví Dụ"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-opus-5-5"
+ },
+ "vaccination": {
+  "doses": [
+   {
+    "vaccine": "VAT",
+    "key": "tetanus",
+    "dose_number": "Mũi 1",
+    "date": "2010-05-04",
+    "given": "yes",
+    "page": 1
+   },
+   {
+    "vaccine": "VAT",
+    "key": "tetanus",
+    "dose_number": "Mũi 2",
+    "date": "2010-06-08",
+    "given": "yes",
+    "page": 1
+   },
+   {
+    "vaccine": "Engerix-B",
+    "key": "hepb",
+    "dose_number": "1",
+    "date": "2015-03-02",
+    "facility": "Bệnh viện Ví Dụ",
+    "given": "yes",
+    "page": 2
+   },
+   {
+    "vaccine": "Hexaxim",
+    "key": "dtap-ipv-hib-hepb",
+    "date": "2016-01-10",
+    "given": "no",
+    "note": "Hoãn tiêm",
+    "page": 2
+   }
+  ]
+ }
+}

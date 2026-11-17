@@ -1,7 +1,7 @@
 # paper-archive
 
-Paper medical documents into FHIR. Photograph or scan a lab report, ECG, ultrasound, X-ray, endoscopy report
-or clinic visit note; an AI agent digitizes it to a PDF and transcribes it; code validates the transcription,
+Paper medical documents into FHIR. Photograph or scan a lab report, ECG, ultrasound, X-ray, endoscopy report,
+clinic visit note or vaccination slip, booklet or certificate; an AI agent digitizes it to a PDF and transcribes it; code validates the transcription,
 you check it against the paper, and it is loaded into a [Medplum](https://www.medplum.com) FHIR R4 server
 next to the data of [garmin-archive](https://github.com/jollyjoker992/garmin-archive) and
 [healthkit-archive](https://github.com/jollyjoker992/healthkit-archive).
@@ -25,6 +25,7 @@ without a person having compared the review sheet with the paper.
 | Ultrasound, echocardiography, X-ray | `DiagnosticReport` + findings, impression, named measurements |
 | Endoscopy | the same, with endoscopy codes |
 | Clinic visit note | `Encounter`, `Composition` (sections as printed), `Condition` (the diagnosis) |
+| Vaccination slip, booklet, certificate | per dose, by your answer to "was it given?": `Immunization` (CVX, lot, dose number) completed or not-done, or a `MedicationRequest` for an order you cannot confirm; `ImmunizationRecommendation` for a printed next-dose date |
 | Vital signs printed in any header | `Observation` (vital-signs), once per reading |
 | Every document | `DocumentReference` + the PDF as `Binary`; every result links back to its scan |
 
@@ -77,13 +78,13 @@ other archives) and prescriptions.
 ## Privacy
 
 `data/` holds scans and transcriptions of real people and is never committed. Tests and examples use made-up
-documents only. The only network calls are `load` (to your Medplum) and `tools/loinc_check.py` (LOINC
-numbers to the NLM search API). The agent that transcribes necessarily sees the document: use one you trust
+documents only. The only network calls are `load` (to your Medplum), `tools/loinc_check.py` (LOINC
+numbers to the NLM search API) and `tools/cvx_check.py` (downloads the CDC's CVX list; sends nothing). The agent that transcribes necessarily sees the document: use one you trust
 with health records.
 
 ## Licence
 
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). LOINC codes and names are © Regenstrief Institute,
-used under the LOINC licence. Reporting a vulnerability: [SECURITY.md](SECURITY.md).
+used under the LOINC licence. CVX vaccine codes are published by the CDC. Reporting a vulnerability: [SECURITY.md](SECURITY.md).
 
 This software stores what a paper document says. It is not a medical device and gives no medical advice.

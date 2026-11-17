@@ -21,8 +21,8 @@ Levels: **error** blocks approval and mapping. **warning** blocks approval until
 |---|---|
 | `E-SCHEMA` | Unknown field, missing required field, wrong type (a value must be the printed string, not a number), bad date. |
 | `E-FORMAT` | `format` is not `paper-archive/extraction/1`. |
-| `E-BODY` | The body does not fit the document type (`results`, `ecg`, `study`, `visit`). |
-| `E-EMPTY` | A lab report without results, an ECG or visit with nothing in it. |
+| `E-BODY` | The body does not fit the document type (`results`, `ecg`, `study`, `visit`, `vaccination`). |
+| `E-EMPTY` | A lab report without results, an ECG or visit with nothing in it, a vaccination document without doses or appointments. |
 
 ## Whose document, and when
 
@@ -33,7 +33,7 @@ Levels: **error** blocks approval and mapping. **warning** blocks approval until
 | `E-PATIENT-AGE` | Printed age fits neither full years nor year-minus-year at the document's date. |
 | `E-PATIENT-SEX` | Printed sex differs. |
 | `W-PATIENT-NO-NAME` | No name on the paper. |
-| `E-DATE-MISSING` | No date the document's clinical time can be taken from. |
+| `E-DATE-MISSING` | No date the document's clinical time can be taken from; a vaccination dose with neither its own date nor a document date. |
 | `E-DATE-FUTURE`, `E-DATE-BEFORE-BIRTH`, `E-DATE-ORDER` | A date after today, before birth, or collected > received > performed > reported out of order. |
 
 ## The same paper twice
@@ -94,6 +94,26 @@ interpretation, only `W-FLAG-MISSING`.
 | `W-STUDY-AVAILABLE` | No key although the catalog has the study. |
 | `W-VITAL-UNUSABLE` | A header vital sign that is impossible, not a number, or a BMI that does not follow from height and weight. It is left out of FHIR; the document is not blocked, because hospital software really prints `0kg`, `1600cm`, `BMI: NaN`. |
 | `W-UNCERTAIN` | The agent listed a value it could not read with confidence. |
+
+## Vaccinations
+
+| Code | Meaning |
+|---|---|
+| `E-DOSE-UNCONFIRMED` | `given` is missing: ask the owner whether this dose was given (`yes`, `no`, `unknown`). The paper does not decide it; a slip shows an order. |
+| `I-DOSE-ORDERED` | `given: unknown`: stored as an order (`MedicationRequest`), not in the vaccination history. |
+| `E-VACCINE-UNKNOWN` | `key` is not a vaccine catalog key. |
+| `W-VACCINE-UNLISTED` | The printed name and disease are not among the entry's names, or the printed name fits another entry better (`Gardasil 9` keyed as `hpv4`). |
+| `W-VACCINE-AVAILABLE` | No key given although the catalog has the vaccine. |
+| `I-UNCODED` | Not in the vaccine catalog, or known and deliberately not coded (`Hexaxim`): stored with the printed name only. |
+| `E-DATE-FUTURE`, `E-DATE-BEFORE-BIRTH` | A dose date after today (allowed only for `given: unknown`, an order for a later day) or before birth. |
+| `E-DATE-ORDER` | `next_due` is not after the dose's date. |
+| `W-DOSE-REPEATED` | The same vaccine twice on the same day in one document: a row read twice, or a different vaccine. |
+| `I-DOSE-TEXT` | `dose_quantity` is not a number with a known unit (a bare number without `dose_unit`): kept as a note. |
+| `W-DOSE-ELSEWHERE` | The same vaccine on the same day is a dose of another document of the person (a loose card and the booklet it belongs in): one shot would be in the history twice. Not reported between two documents already reported as the same paper. |
+| `W-DOSE-EXPIRED` | `expiry` (to the end of its month) is before the dose's date: a misread expiry or date, or a wrong paper. |
+
+The vaccine checks (`E-VACCINE-UNKNOWN`, `W-VACCINE-UNLISTED`, `W-VACCINE-AVAILABLE`, `I-UNCODED`) and
+`E-DATE-BEFORE-BIRTH` apply to `due` appointments too.
 
 ## What the rules cannot catch
 

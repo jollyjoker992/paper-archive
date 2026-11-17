@@ -1,8 +1,9 @@
 # Agent guide: paper-archive
 
-Paper medical documents (lab reports, ECGs, ultrasound, X-ray, endoscopy, clinic visit notes) become FHIR R4
-resources in the family's Medplum. It is the third feeder next to garmin-archive and healthkit-archive and
-follows their conventions: stable identifiers, verified LOINC codes, Medplum's own validator.
+Paper medical documents (lab reports, ECGs, ultrasound, X-ray, endoscopy, clinic visit notes, vaccination
+slips, booklets and certificates) become FHIR R4 resources in the family's Medplum. It is the third feeder
+next to garmin-archive and healthkit-archive and follows their conventions: stable identifiers, verified
+LOINC and CVX codes, Medplum's own validator.
 
 ```
 scans ─intake─▶ document.pdf ─(you transcribe)─▶ extraction.json ─validate─▶ review ─▶ owner approves ─map─▶ fhir.ndjson ─load─▶ Medplum
@@ -25,13 +26,17 @@ approved documents. Reading transcriptions in `data/` to answer a question needs
 - **Transcribe, do not interpret.** Every value is the printed string. Do not convert units, round, compute,
   fix typos, translate, or fill a field the paper leaves empty. What you cannot read goes into `uncertain`,
   never a best guess in the value.
+- **Was a vaccine given? Only the owner says.** A vaccination dose's `given` (`yes` / `no` / `unknown`) is the
+  one field that is not printed: a slip shows an order, not a shot. Fill it only with the owner's answer for
+  that dose in this conversation; never infer it from a lot number, a signature or the date.
 - **Only the owner approves.** `approve` records that a person compared the review sheet with the paper.
   Run it only after the owner said so in this conversation, for that document, and pass their name in `--by`.
   Never approve to "unblock" a load, and never pass `--accept-warnings` unless the owner settled each warning.
 - **Never guess a code.** A row gets a catalog key only when it is the same test (`catalog find`). No match:
-  `analyte` / `study.key` is null and the result is stored with its printed name. To add a code, follow
-  [`.agents/skills/paper-catalog/SKILL.md`](.agents/skills/paper-catalog/SKILL.md): every LOINC code is
-  checked against the NLM API (`tools/loinc_check.py`); a code that only looks right is a defect.
+  `analyte` / `study.key` / dose `key` is null and the result is stored with its printed name. To add a
+  code, follow [`.agents/skills/paper-catalog/SKILL.md`](.agents/skills/paper-catalog/SKILL.md): every LOINC
+  code is checked against the NLM API (`tools/loinc_check.py`), every CVX code against the CDC list
+  (`tools/cvx_check.py`); a code that only looks right is a defect.
 - **One person per document, checked.** `--person` must be the person on the paper. A name, birth date, age
   or sex that does not match `people.toml` is an error on purpose; do not add an alias to make it pass
   unless the owner confirms the spelling is theirs.
@@ -54,8 +59,8 @@ approved documents. Reading transcriptions in `data/` to answer a question needs
 ```sh
 python3 paper_archive.py people                          # who the archive knows
 python3 paper_archive.py intake --person <id> <files>    # page photos in reading order, or one PDF
-python3 paper_archive.py template <type>                 # empty extraction: lab-report ecg ultrasound xray endoscopy visit
-python3 paper_archive.py catalog find "<printed name>"   # catalog key for a test; --study for imaging/endoscopy
+python3 paper_archive.py template <type>                 # empty extraction: lab-report ecg ultrasound xray endoscopy visit vaccination
+python3 paper_archive.py catalog find "<printed name>"   # catalog key for a test; --study for imaging/endoscopy, --vaccine for vaccines
 python3 paper_archive.py validate <doc> [--json]         # every rule; exit 1 on errors
 python3 paper_archive.py review <doc> [--compact]        # the sheet the owner checks against the paper (--compact: for a chat)
 python3 paper_archive.py approve <doc> --by "<owner>"    # owner's decision only
@@ -66,6 +71,7 @@ python3 paper_archive.py load [--force]                  # -> Medplum (PAPER_FHI
 python3 paper_archive.py status [--json]                 # intake | extracted | approved | mapped | loaded
 python3 -m unittest discover -s tests                    # offline tests, made-up documents
 python3 tools/loinc_check.py                             # every catalog code against the NLM LOINC API
+python3 tools/cvx_check.py                               # every vaccine code against the CDC CVX list
 python3 tools/fhir_fixtures.py <dir>                     # the fixtures as FHIR NDJSON, for the validator
 cd tools/fhir-validate && npm ci && node validate.mjs <ndjson|dir>   # Medplum's validator
 ```
@@ -80,7 +86,7 @@ Exit codes: `0` done, `1` validation errors or failed documents, `2` something t
 | Format of a transcription | `docs/extraction-format.md`, schema in `paperarchive/extraction.py` (`SCHEMA`) |
 | Validation rules (every code) | `docs/validation-rules.md`, `paperarchive/extraction.py` |
 | FHIR mapping | `docs/fhir-mapping.md`, `paperarchive/fhir.py` |
-| Catalog: tests, units, ECG, vitals, studies, note sections | `paperarchive/catalog/analytes.json`, `units.json`, `codes.json` |
+| Catalog: tests, units, ECG, vitals, studies, note sections, vaccines | `paperarchive/catalog/analytes.json`, `units.json`, `codes.json`, `vaccines.json` |
 | Archive layout, intake, approval, removal | `paperarchive/store.py`, PDF builder `paperarchive/pdf.py` |
 | The same paper twice | `paperarchive/duplicates.py` (intake refuses known files in `store.py`) |
 | Loader | `paperarchive/load.py` (transaction of conditional updates per document) |

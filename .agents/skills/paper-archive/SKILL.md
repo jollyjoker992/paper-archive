@@ -1,6 +1,6 @@
 ---
 name: paper-archive
-description: Take paper medical documents (photos or scans of lab reports, ECGs, ultrasound, X-ray, endoscopy reports, clinic visit notes) into paper-archive - digitize to PDF, transcribe to extraction.json, validate, and prepare the review sheet for the owner. Use when the user gives health papers, scans or photos to file, digitize, read or load into Medplum.
+description: Take paper medical documents (photos or scans of lab reports, ECGs, ultrasound, X-ray, endoscopy reports, clinic visit notes, vaccination slips, booklets and certificates) into paper-archive - digitize to PDF, transcribe to extraction.json, validate, and prepare the review sheet for the owner. Use when the user gives health papers, scans or photos to file, digitize, read or load into Medplum.
 ---
 
 # Taking a paper document into the archive
@@ -44,6 +44,7 @@ re-read at full resolution any digit you are not sure of). Then follow the refer
 | Electrocardiogram | `ecg` | [references/ecg.md](references/ecg.md) |
 | Ultrasound (incl. echocardiography), X-ray, endoscopy | `ultrasound`, `xray`, `endoscopy` | [references/study.md](references/study.md) |
 | Clinic visit / consultation result | `visit` | [references/visit.md](references/visit.md) |
+| Vaccination slip, booklet or card, certificate | `vaccination` | [references/vaccination.md](references/vaccination.md) |
 
 For every type (`docs/extraction-format.md` is the full format):
 
@@ -111,6 +112,7 @@ it is approved again.
 ## What you never do
 
 - Write or edit `fhir.ndjson`, or invent FHIR by hand.
+- Set a vaccination dose's `given` without the owner's answer for that dose.
 - Approve for the owner, or accept warnings they have not seen.
 - Interpret results for the record: no diagnosis, no "normal", no flag the paper does not carry. (Answering
   the owner's questions about their results in conversation is fine; it does not go into the archive.)

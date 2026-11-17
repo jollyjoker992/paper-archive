@@ -1,7 +1,7 @@
 {
- "version": "0.2.0",
+ "version": "0.3.0",
  "loinc_checked": "2026-11-17",
- "about": "Every LOINC code the mapper uses outside the analyte catalog: document and report types, ECG measurements, vital signs, narrative sections, imaging and endoscopy studies. tools/loinc_check.py checks each against the NLM LOINC API and fills in the display.",
+ "about": "Every LOINC code the mapper uses outside the analyte catalog: document and report types, ECG measurements, vital signs, narrative sections, imaging and endoscopy studies, the vaccination due date. tools/loinc_check.py checks each against the NLM LOINC API and fills in the display.",
  "documents": {
   "lab-report": {
    "loinc": "11502-2",
@@ -26,6 +26,10 @@
   "visit": {
    "loinc": "34108-1",
    "display": "Outpatient Note"
+  },
+  "vaccination": {
+   "loinc": "87273-9",
+   "display": "Immunization Note"
   }
  },
  "ecg": {
@@ -428,6 +432,12 @@
   "advice": {
    "loinc": "18776-5",
    "display": "Plan of Care Note"
+  }
+ },
+ "immunization": {
+  "date_due": {
+   "loinc": "30980-7",
+   "display": "Date vaccine due"
   }
  }
 }

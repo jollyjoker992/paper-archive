@@ -24,11 +24,11 @@ Unknown fields are errors. A field that is null, an empty string or absent means
 
 | Field | Rule |
 |---|---|
-| `document.type` | `lab-report`, `ecg`, `ultrasound`, `xray`, `endoscopy`, `visit`. Decides which body is required. |
+| `document.type` | `lab-report`, `ecg`, `ultrasound`, `xray`, `endoscopy`, `visit`, `vaccination`. Decides which body is required. |
 | `document.document_number` | Report or sample number printed on the paper. |
 | `patient.*` | As printed; only what is printed. Used solely to check the document belongs to the person it was filed under. `age` is the printed age in years. |
 | `facility.name` | Required. Becomes the FHIR Organization (one per distinct name). |
-| `dates.*` | `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS]`, local time, no offset (the person's time zone supplies it). A lab report needs `collected`, `received` or `reported`; the others need `performed` or `reported`. The first of those is the clinical date of everything in the document. |
+| `dates.*` | `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM[:SS]`, local time, no offset (the person's time zone supplies it). A lab report needs `collected`, `received` or `reported`; the others need `performed` or `reported`. The first of those is the clinical date of everything in the document. A vaccination document may have no date of its own (a booklet) when every dose has its `date`; the earliest dose is then the document's date. |
 | `vitals.*` | Numbers as printed; units are fixed (/min, mmHg as `systolic/diastolic`, °C, cm, kg, kg/m2). Impossible values are dropped with a warning. |
 | `uncertain` | Every value the agent could not read with confidence. Each entry is a warning the owner must settle. |
 | `notes` | Printed content with no field. Kept in the transcription; not mapped to FHIR. |
@@ -64,9 +64,32 @@ A list of rows:
 `reason`, `medications`, `family_history`, `past_history`, `allergies`, `examination`, `tests`, `diagnosis`,
 `advice`: each the printed text of that section.
 
+## `vaccination` (slip, booklet, certificate)
+
+`screening` (the printed screening conclusion, e.g. `Đủ điều kiện tiêm chủng ngay`), `dose_unit` (a unit printed
+once in the column header, `Liều lượng (ml)` → `ml`: it applies to a bare `dose_quantity` such as `0,5`), `doses`,
+and `due`. `doses` is a list:
+
+| Field | |
+|---|---|
+| `vaccine` (required) | Printed vaccine or product name, whole (`Gardasil 9 (0,5ml)`). |
+| `key` | Vaccine catalog key (`paperarchive/catalog/vaccines.json`, `catalog find --vaccine`) or null. |
+| `disease`, `dose_number` | Printed target disease (`phòng bệnh`) and dose (`Mũi 2`), as printed. |
+| `date` | `YYYY-MM-DD[THH:MM]`, the dose's own printed date (booklet rows). Left out on a slip: the document's date is used. |
+| `lot`, `manufacturer`, `route`, `site`, `dose_quantity`, `given_by`, `facility`, `note`, `page` | As printed. `facility` only when the row names a place other than the document's facility. One printed `Route & Site` cell (`TB`, `TBTT`) goes whole into `route`. |
+| `country` | `Nước sản xuất`, the country of manufacture (`Pháp`). Not `manufacturer`: a country is not a maker. |
+| `expiry` | `YYYY-MM` or `YYYY-MM-DD` (printed `08/2027` becomes `2027-08`). |
+| `next_due` | `YYYY-MM-DD`, a printed appointment for the next dose (may be in the future). |
+| `given` | **Not printed: the owner's answer** `yes`, `no` or `unknown`. Required before approval (`E-DOSE-UNCONFIRMED`). |
+
+`due` lists printed appointments for a vaccine that has no dose row above it (a card's `23-10-25 SXH`):
+`vaccine` (required, as printed), `key`, `disease`, `dose_number`, `date` (required, `YYYY-MM-DD`), `note`, `page`.
+An appointment line with only a date under a dose is that dose's `next_due`, not a `due` entry. A document with
+appointments only needs a date of its own.
+
 ## What is derived, never transcribed
 
-Numeric values and comparators, UCUM units, low/high of the range (for the person's sex), the interpretation
+Numeric values and comparators, UCUM units, CVX codes, low/high of the range (for the person's sex), the interpretation
 (`H`/`L` from a `marked` value and its printed range; negative from a printed index rule), LOINC codes, time
 offsets, identifiers. They are computed by `paperarchive/extraction.py` and shown on the review sheet, which
 is what the owner approves.

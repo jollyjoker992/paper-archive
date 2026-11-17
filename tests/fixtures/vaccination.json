@@ -1,0 +1,62 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "vaccination",
+  "language": "vi",
+  "title": "PHIẾU CHỈ ĐỊNH TIÊM CHỦNG",
+  "document_number": "TC-000123",
+  "pages": 1
+ },
+ "patient": {
+  "name": "Trần Thị Ví Dụ",
+  "birth_date": "1985-03-14",
+  "sex": "female",
+  "patient_number": "KH-0042"
+ },
+ "facility": {
+  "name": "Trung tâm Tiêm chủng Ví Dụ"
+ },
+ "staff": {
+  "ordered_by": "BS. Nguyễn Văn Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-02T08:30"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-opus-5-5"
+ },
+ "vitals": {
+  "temperature": "36,7",
+  "pulse": "82",
+  "weight": "54"
+ },
+ "vaccination": {
+  "screening": "Đủ điều kiện tiêm chủng ngay",
+  "doses": [
+   {
+    "vaccine": "Gardasil 9 (0,5ml)",
+    "key": "hpv9",
+    "disease": "HPV",
+    "dose_number": "Mũi 2",
+    "lot": "X012345",
+    "expiry": "2027-08",
+    "manufacturer": "MSD",
+    "route": "Tiêm bắp",
+    "site": "Cánh tay trái",
+    "dose_quantity": "0,5 ml",
+    "given_by": "ĐD. Lê Thị Mẫu",
+    "next_due": "2027-04-02",
+    "given": "yes"
+   },
+   {
+    "vaccine": "Vaxigrip Tetra",
+    "key": "influenza",
+    "disease": "Cúm",
+    "dose_number": "Mũi 1",
+    "dose_quantity": "0,5 ml",
+    "given": "unknown"
+   }
+  ]
+ }
+}

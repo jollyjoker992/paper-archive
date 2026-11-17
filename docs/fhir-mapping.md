@@ -1,4 +1,4 @@
-# FHIR mapping (version 0.2.0)
+# FHIR mapping (version 0.3.0)
 
 How an approved transcription becomes FHIR R4 resources. This is what `paper_archive.py map` implements
 (`paperarchive/fhir.py`). FHIR is a view: it is rebuilt from `extraction.json` and the catalog, and the scan
@@ -59,6 +59,7 @@ Patient and Organization (loaded first, from `shared.ndjson`) stay conditional.
 | `Observation` | result row, measurement, narrative block | `paper-observation` = `<document id>/<slug>` | See below. |
 | `Observation` (vital sign) | printed vital sign | `paper-observation` = `vital/<person>/<date>/<kind>/<value>` | See "Vital signs". |
 | `Encounter`, `Composition`, `Condition` | visit note | `paper-encounter`, `paper-composition`, `paper-condition` | See "Visit notes". |
+| `Immunization`, `MedicationRequest`, `ImmunizationRecommendation` | vaccine dose | `paper-immunization`, `paper-medication-request`, `paper-recommendation` = `<document id>/<slug>` | See "Vaccinations". |
 | `Binary` | document | (server id) | The PDF; uploaded by the loader. |
 
 ### Document types
@@ -71,6 +72,7 @@ Patient and Organization (loaded first, from `shared.ndjson`) stay conditional.
 | `xray` | 18748-4 | the study's code, else 18748-4 | `RX` | `imaging` |
 | `endoscopy` | 18751-8 Endoscopy study | the study's code, else 18751-8 | text only (v2-0074 has no endoscopy code) | `procedure` |
 | `visit` | 34108-1 Outpatient Note | (no report) | | |
+| `vaccination` | 87273-9 Immunization Note | (no report) | | |
 
 `DiagnosticReport.code.text` is the printed title of the examination.
 
@@ -139,6 +141,36 @@ three reports of one afternoon give one blood pressure, not three.
 History, allergies and medications stay narrative sections: a doctor's free-text line is not turned into
 `AllergyIntolerance` or `MedicationStatement` resources.
 
+### Vaccinations
+
+A slip shows that a vaccine was ordered, not that it was given, so each dose carries the owner's answer
+(`given`), and that answer picks the resource:
+
+| `given` | Resource |
+|---|---|
+| `yes` | `Immunization`, `status` completed |
+| `no` | `Immunization`, `status` not-done |
+| `unknown` | `MedicationRequest`, `status` unknown, `intent` order: the order the paper shows, not part of the history |
+
+| Element | From |
+|---|---|
+| `vaccineCode` / `medicationCodeableConcept` | CVX (`http://hl7.org/fhir/sid/cvx`) from `vaccines.json` + `text` = printed name; text only when not coded. Where the printed name cannot tell formulations apart the catalog uses CVX's "unspecified formulation" code (influenza 88, hepatitis B 45, ...). Every code is checked against the CDC list (`tools/cvx_check.py`). |
+| `occurrenceDateTime` / `authoredOn` | The dose's printed date, else the document's date. |
+| `lotNumber`, `expirationDate`, `manufacturer.display`, `site.text`, `route.text` | As printed. |
+| `doseQuantity` | Parsed number + printed unit (or `dose_unit` from the column header) + UCUM (`0,5 ml` → 0.5 `mL`); otherwise a note. |
+| `performer` | The document's Organization, or `actor.display` = the row's printed facility; function `AP` (v2-0443) `actor.display` = the printed vaccinator. |
+| `protocolApplied` | `doseNumberString` = printed dose number, `targetDisease.text` = printed disease. |
+| `note` | Who said it was given (the owner, at review), the screening conclusion, the country of manufacture, the row note. |
+| `requester.display` | (`MedicationRequest`) `staff.ordered_by`. `dosageInstruction.text` = dose number, disease, amount, route, site. |
+
+A printed next-dose date becomes an `ImmunizationRecommendation`: `date` = the dose's date, `authority` =
+the Organization, `forecastStatus` due, `dateCriterion` 30980-7 Date vaccine due = the printed date. It is
+the paper's appointment, kept as history: a later document does not close it. An entry of `due` (an appointment
+for a vaccine with no dose on the paper) becomes one too, identifier `<document id>/due-<slug>`, `date` = the
+document's date, with `targetDisease.text` and `doseNumberString` when printed. `DocumentReference.context.related`
+lists every resource of the document (Immunization has no `derivedFrom`). Screening vitals are vital signs as
+above.
+
 ## Not mapped
 
 `notes`, `uncertain`, `patient.*` (used for checking only), `staff.ordered_by`, `document.pages`, printed
@@ -154,4 +186,5 @@ current document still produces is never deleted. Configuration: `PAPER_FHIR_URL
 `PAPER_FHIR_CLIENT_ID`, `PAPER_FHIR_CLIENT_SECRET`.
 
 A read-only client for agents needs, beyond what the other archives' policies list: `DiagnosticReport`,
-`Organization`, `Encounter`, `Composition`, `Condition`.
+`Organization`, `Encounter`, `Composition`, `Condition`, `Immunization`, `ImmunizationRecommendation`,
+`MedicationRequest`.

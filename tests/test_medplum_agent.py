@@ -44,6 +44,26 @@ class Helpers(unittest.TestCase):
         self.assertTrue(agent.in_range("2023-02-13T14:04:00+07:00", "2023-02-13", "2023-02-13"))
         self.assertFalse(agent.in_range("2023-02-13", "2023-02-14", None))
 
+    def test_vaccination_rows(self):
+        ident = lambda kind, value: [{"system": agent.system(kind), "value": value}]  # noqa: E731
+        hpv = {"coding": [{"system": agent.CVX, "code": "165", "display": "HPV9"}], "text": "Gardasil 9"}
+        given = {"resourceType": "Immunization", "identifier": ident("paper-immunization", "d_1/hpv9"),
+                 "status": "completed", "vaccineCode": hpv, "occurrenceDateTime": "2026-10-02", "lotNumber": "X1",
+                 "performer": [{"actor": {"reference": "Organization/o"}},
+                               {"function": {"coding": [{"code": "AP"}]}, "actor": {"display": "ĐD. A"}}],
+                 "protocolApplied": [{"doseNumberString": "Mũi 2"}]}
+        self.assertEqual(agent.dose_row(given), {"date": "2026-10-02", "vaccine": "Gardasil 9", "cvx": "165",
+                                                 "status": "given", "dose": "Mũi 2", "lot": "X1", "given_by": "ĐD. A",
+                                                 "document": "d_1"})
+        order = {"resourceType": "MedicationRequest", "identifier": ident("paper-medication-request", "d_1/flu"),
+                 "medicationCodeableConcept": {"text": "Vaxigrip Tetra"}, "authoredOn": "2026-10-02"}
+        self.assertEqual(agent.dose_row(order)["status"], "ordered, not known whether given")
+        due = {"resourceType": "ImmunizationRecommendation", "identifier": ident("paper-recommendation", "d_1/hpv9"),
+               "date": "2026-10-02", "recommendation": [{"vaccineCode": [hpv], "dateCriterion": [{"value": "2027-04-02"}]}]}
+        self.assertEqual(agent.dose_row(due), {"date": "2027-04-02", "vaccine": "Gardasil 9", "cvx": "165",
+                                               "status": "next dose due (printed)", "printed_on": "2026-10-02",
+                                               "document": "d_1"})
+
 
 if __name__ == "__main__":
     unittest.main()

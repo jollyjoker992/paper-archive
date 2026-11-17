@@ -1,6 +1,6 @@
 ---
 name: paper-health-analysis
-description: Answer questions about a person's paper medical records stored in Medplum by paper-archive - lab results (blood count, glucose, lipids, liver and kidney tests, thyroid, urine), ECG, ultrasound, echocardiography, X-ray and endoscopy reports, clinic visit notes and the vital signs printed on them. Use for questions like "what was my LDL last time", "how has my cholesterol changed", "what did the abdominal ultrasound say", "list my documents from 2023", "send me the ECG scan".
+description: Answer questions about a person's paper medical records stored in Medplum by paper-archive - lab results (blood count, glucose, lipids, liver and kidney tests, thyroid, urine), ECG, ultrasound, echocardiography, X-ray and endoscopy reports, clinic visit notes, vaccinations (doses given, ordered, next doses due) and the vital signs printed on them. Use for questions like "what was my LDL last time", "how has my cholesterol changed", "what did the abdominal ultrasound say", "list my documents from 2023", "when was my last flu shot", "which vaccines are due", "send me the ECG scan".
 ---
 
 # Paper records analysis (read-only)
@@ -16,6 +16,7 @@ python3 tools/medplum_agent.py document d_42a9                 # one document: c
 python3 tools/medplum_agent.py results ldl [--person P]        # one test over time (catalog key)
 python3 tools/medplum_agent.py results 2093-3                  # or a LOINC code
 python3 tools/medplum_agent.py results "RDW-SD"                # or words of the printed name
+python3 tools/medplum_agent.py vaccinations [--person P]       # every vaccine dose, oldest first
 python3 tools/medplum_agent.py pdf d_42a9 [--out FILE]         # the scan, to send or to look at
 ```
 
@@ -37,11 +38,16 @@ test (`hba1c`, `egfr`, `urea`, `alt`, ...).
 5. **Reference ranges differ between labs.** Compare a value with the range printed on its own report.
 6. **Imaging, ECG, endoscopy and visit notes** are text: quote the conclusion (impression, diagnosis)
    verbatim, then summarise the findings in plain words if asked, without adding findings.
-7. **Dates** are the clinical date (sample collected, examination performed), in the person's time zone.
-8. **The scan.** For "show me", "send me" or when a value is questioned, get the PDF with `pdf` and attach
+7. **Vaccinations** have three states; never merge them. `given` (the owner confirmed it at review),
+   `not given`, and `ordered, not known whether given` (a slip whose shot nobody confirmed): only `given`
+   counts as a dose received. `next dose due (printed)` is the appointment printed on that paper; a later
+   dose of the same vaccine may already have taken place, so check the list before saying a dose is overdue.
+   The vaccine name is the printed one; the CVX code may be an "unspecified formulation" code on purpose.
+8. **Dates** are the clinical date (sample collected, examination performed), in the person's time zone.
+9. **The scan.** For "show me", "send me" or when a value is questioned, get the PDF with `pdf` and attach
    it. If a value looks wrong against the scan, say so: the owner can correct and re-approve the
    transcription.
-9. **Not medical advice.** Describe what the records say and how values changed. For results marked
+10. **Not medical advice.** Describe what the records say and how values changed. For results marked
    abnormal, persistent changes or worrying findings, suggest discussing them with a doctor; never
    diagnose.
 

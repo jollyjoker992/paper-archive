@@ -20,6 +20,10 @@ def template(dtype: str) -> dict:
         "ecg": {"ecg": {"measurements": {k: "" for k in extraction.ECG["measurements"]}, "rhythm": "",
                         "machine_interpretation": "", "conclusion": "", "device": ""}},
         "visit": {"visit": {k: "" for k in extraction.VISIT_SECTIONS}},
+        "vaccination": {"vaccination": {"screening": "", "dose_unit": "", "doses": [
+            {**{k: "" for k in extraction.DOSE}, "key": None, "date": None, "expiry": None, "next_due": None,
+             "given": None, "page": 1}],
+            "due": [{**{k: "" for k in extraction.DUE}, "key": None, "date": None, "page": 1}]}},
     }.get(dtype, {"study": {"key": None, "procedure": "", "indication": "", "technique": "", "findings": "",
                             "measurements": [row], "impression": "", "recommendation": ""}})
     return {"format": EXTRACTION_FORMAT,
@@ -99,6 +103,27 @@ def _compact_rows(rows: list[dict]) -> list[str]:
     return out
 
 
+def _dose_lines(doses: list[dict], due: list[dict] = ()) -> list[str]:
+    """One line per dose and per appointment: what is printed, and what it becomes."""
+    out = []
+    for d in doses:
+        printed = ", ".join(f"{k} {d[k]}" for k in ("disease", "dose_number", "lot", "expiry", "manufacturer", "country",
+                                                     "route", "site", "dose_quantity", "given_by", "facility",
+                                                     "next_due", "note")
+                            if d[k])
+        coded = f"CVX {d['code']['cvx']} {d['code']['display']}" if d["code"] else "printed name only"
+        becomes = {"yes": "Immunization completed", "no": "Immunization not-done",
+                   "unknown": "order only (MedicationRequest)"}.get(d["given"], "given? NOT ANSWERED")
+        out.append(f"#{d['index']} {d['date'] or '(no date)'} {d['vaccine']}" + (f" ({printed})" if printed else "")
+                   + f" -> {coded}; {becomes}" + ("; next dose due" if d["next_due"] else ""))
+    for d in due:
+        printed = ", ".join(f"{k} {d[k]}" for k in ("disease", "dose_number", "note") if d[k])
+        coded = f"CVX {d['code']['cvx']} {d['code']['display']}" if d["code"] else "printed name only"
+        out.append(f"due#{d['index']} {d['date']} {d['vaccine']}" + (f" ({printed})" if printed else "")
+                   + f" -> {coded}; appointment (ImmunizationRecommendation)")
+    return out
+
+
 def review_compact(doc: store.Document, issues: list[dict], parsed: dict) -> str:
     """The review sheet for a chat: one line per value, no tables."""
     x = parsed["doc"]
@@ -123,6 +148,10 @@ def review_compact(doc: store.Document, issues: list[dict], parsed: dict) -> str
         out += [f"{k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion") if k in x["ecg"]]
     elif parsed["type"] == "visit" and "visit" in x:
         out += [f"{k}: {v}" for k, v in x["visit"].items()]
+    elif parsed["type"] == "vaccination" and "vaccination" in x:
+        if "screening" in x["vaccination"]:
+            out.append(f"screening: {x['vaccination']['screening']}")
+        out += _dose_lines(parsed["doses"], parsed["due"])
     elif "study" in x:
         study = parsed["study"]
         out.append(f"Study: {study['loinc'] + ' ' + study['display'] if study else 'generic, printed name only'}")
@@ -157,6 +186,10 @@ def cmd_review(args, root):
         out += [f"- {k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion", "device") if k in x["ecg"]]
     elif parsed["type"] == "visit" and "visit" in x:
         out += [""] + [f"- {k}: {v}" for k, v in x["visit"].items()]
+    elif parsed["type"] == "vaccination" and "vaccination" in x:
+        if "screening" in x["vaccination"]:
+            out += ["", f"- screening: {x['vaccination']['screening']}"]
+        out += [""] + [f"- {line}" for line in _dose_lines(parsed["doses"], parsed["due"])]
     elif "study" in x:
         study = parsed["study"]
         out += ["", f"- coded as: {study['loinc'] + ' ' + study['display'] if study else '(generic study, printed name only)'}"]
@@ -248,9 +281,12 @@ def cmd_status(args, root):
 
 
 def cmd_catalog(args, root):
-    hits = catalog.find(args.text, "study" if args.study else "analyte")
+    hits = catalog.find(args.text, "vaccine" if args.vaccine else "study" if args.study else "analyte")
     for entry in hits[:12]:
-        if args.study:
+        if args.vaccine:
+            print(f"{entry['key']:20} {'CVX ' + entry['cvx'] if 'cvx' in entry else 'not coded':9} "
+                  f"{entry.get('display') or entry['reason']}  [{', '.join(entry['names'][:4])}]")
+        elif args.study:
             print(f"{entry['key']:20} {entry['loinc']:9} {entry['display']}  [{entry['type']}]")
         else:
             for code in entry["codes"]:
@@ -259,7 +295,7 @@ def cmd_catalog(args, root):
         if entry.get("use"):
             print(f"{'':20} use: {entry['use']}")
     if not hits:
-        print("no match: transcribe with analyte/study null (see the paper-catalog skill to add it)")
+        print("no match: transcribe with analyte/study/key null (see the paper-catalog skill to add it)")
     return EXIT_OK
 
 
@@ -307,6 +343,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("action", choices=["find"])
     p.add_argument("text")
     p.add_argument("--study", action="store_true", help="search imaging studies instead of lab analytes")
+    p.add_argument("--vaccine", action="store_true", help="search vaccines instead of lab analytes")
     p.set_defaults(fn=cmd_catalog)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
