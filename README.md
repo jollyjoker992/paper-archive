@@ -25,6 +25,7 @@ without a person having compared the review sheet with the paper.
 | Ultrasound, echocardiography, X-ray | `DiagnosticReport` + findings, impression, named measurements |
 | Endoscopy | the same, with endoscopy codes |
 | Clinic visit note | `Encounter`, `Composition` (sections as printed), `Condition` (the diagnosis) |
+| Procedure or operation note | `Procedure` (what was done, by whom, the description as printed), `Condition` (the diagnosis) |
 | Vaccination slip, booklet, certificate | per dose, by your answer to "was it given?": `Immunization` (CVX, lot, dose number) completed or not-done, or a `MedicationRequest` for an order you cannot confirm; `ImmunizationRecommendation` for a printed next-dose date |
 | Vital signs printed in any header | `Observation` (vital-signs), once per reading |
 | Every document | `DocumentReference` + the PDF as `Binary`; every result links back to its scan |

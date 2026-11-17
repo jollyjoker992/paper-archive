@@ -1,6 +1,6 @@
 ---
 name: paper-archive
-description: Take paper medical documents (photos or scans of lab reports, ECGs, ultrasound, X-ray, endoscopy reports, clinic visit notes, vaccination slips, booklets and certificates) into paper-archive - digitize to PDF, transcribe to extraction.json, validate, and prepare the review sheet for the owner. Use when the user gives health papers, scans or photos to file, digitize, read or load into Medplum.
+description: Take paper medical documents (photos or scans of lab reports, ECGs, ultrasound, X-ray, endoscopy reports, clinic visit notes, procedure and operation notes, vaccination slips, booklets and certificates) into paper-archive - digitize to PDF, transcribe to extraction.json, validate, and prepare the review sheet for the owner. Use when the user gives health papers, scans or photos to file, digitize, read or load into Medplum.
 ---
 
 # Taking a paper document into the archive
@@ -44,6 +44,7 @@ re-read at full resolution any digit you are not sure of). Then follow the refer
 | Electrocardiogram | `ecg` | [references/ecg.md](references/ecg.md) |
 | Ultrasound (incl. echocardiography), X-ray, endoscopy | `ultrasound`, `xray`, `endoscopy` | [references/study.md](references/study.md) |
 | Clinic visit / consultation result | `visit` | [references/visit.md](references/visit.md) |
+| Procedure or operation note (`tường trình phẫu thuật - thủ thuật`) | `procedure` | [references/procedure.md](references/procedure.md) |
 | Vaccination slip, booklet or card, certificate | `vaccination` | [references/vaccination.md](references/vaccination.md) |
 
 For every type (`docs/extraction-format.md` is the full format):

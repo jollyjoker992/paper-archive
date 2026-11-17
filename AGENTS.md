@@ -1,6 +1,6 @@
 # Agent guide: paper-archive
 
-Paper medical documents (lab reports, ECGs, ultrasound, X-ray, endoscopy, clinic visit notes, vaccination
+Paper medical documents (lab reports, ECGs, ultrasound, X-ray, endoscopy, clinic visit notes, procedure notes, vaccination
 slips, booklets and certificates) become FHIR R4 resources in the family's Medplum. It is the third feeder
 next to garmin-archive and healthkit-archive and follows their conventions: stable identifiers, verified
 LOINC and CVX codes, Medplum's own validator.
@@ -65,7 +65,7 @@ approved documents. Reading transcriptions in `data/` to answer a question needs
 ```sh
 python3 paper_archive.py people                          # who the archive knows
 python3 paper_archive.py intake --person <id> <files>    # page photos in reading order, or one PDF
-python3 paper_archive.py template <type>                 # empty extraction: lab-report ecg ultrasound xray endoscopy visit vaccination
+python3 paper_archive.py template <type>                 # empty extraction: lab-report ecg ultrasound xray endoscopy visit procedure vaccination
 python3 paper_archive.py catalog find "<printed name>"   # catalog key for a test; --study for imaging/endoscopy, --vaccine for vaccines
 python3 paper_archive.py validate <doc> [--json]         # every rule; exit 1 on errors
 python3 paper_archive.py review <doc> [--compact]        # the sheet the owner checks against the paper (--compact: for a chat)

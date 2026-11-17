@@ -1,4 +1,4 @@
-# FHIR mapping (version 0.3.0)
+# FHIR mapping (version 0.4.0)
 
 How an approved transcription becomes FHIR R4 resources. This is what `paper_archive.py map` implements
 (`paperarchive/fhir.py`). FHIR is a view: it is rebuilt from `extraction.json` and the catalog, and the scan
@@ -54,11 +54,12 @@ Patient and Organization (loaded first, from `shared.ndjson`) stay conditional.
 |---|---|---|---|
 | `Patient` | person | `paper-user` = person id | `name.text`, `gender`, `birthDate` from `people.toml`. One Patient per source, as in the other archives; a FHIR Person links them (agentic-assistant's steward). |
 | `Organization` | facility name | `paper-organization` = slug of the name | `name`, `address.text`. |
-| `DocumentReference` | document | `paper-document` = document id (second identifier: the printed report number, system `…/printed-number/<organization>`) | `type` by document type, `date` = intake time, `content.attachment` = the PDF (`size`, SHA-1 `hash`, `url` set by the loader), `context.period.start` = clinical date, `context.related` → the report or Composition. |
+| `DocumentReference` | document | `paper-document` = document id (second identifier: the printed report number, system `…/printed-number/<organization>`) | `type` by document type, `date` = intake time, `content.attachment` = the PDF (`size`, SHA-1 `hash`, `url` set by the loader), `context.period.start` = clinical date, `context.related` → the report, Composition or Procedure. `description` = the printed name of the examination or procedure, else the title. |
 | `DiagnosticReport` | lab report, ECG, ultrasound, X-ray, endoscopy | `paper-report` = document id | `category`, `code`, `effectiveDateTime`, `issued` (when a report time is printed), `performer` = Organization, `resultsInterpreter.display` = signing doctor, `result` = its Observations, `conclusion`. |
 | `Observation` | result row, measurement, narrative block | `paper-observation` = `<document id>/<slug>` | See below. |
 | `Observation` (vital sign) | printed vital sign | `paper-observation` = `vital/<person>/<date>/<kind>/<value>` | See "Vital signs". |
 | `Encounter`, `Composition`, `Condition` | visit note | `paper-encounter`, `paper-composition`, `paper-condition` | See "Visit notes". |
+| `Procedure`, `Condition` | procedure note | `paper-procedure` = document id, `paper-condition` | See "Procedure notes". |
 | `Immunization`, `MedicationRequest`, `ImmunizationRecommendation` | vaccine dose | `paper-immunization`, `paper-medication-request`, `paper-recommendation` = `<document id>/<slug>` | See "Vaccinations". |
 | `Binary` | document | (server id) | The PDF; uploaded by the loader. |
 
@@ -72,6 +73,7 @@ Patient and Organization (loaded first, from `shared.ndjson`) stay conditional.
 | `xray` | 18748-4 | the study's code, else 18748-4 | `RX` | `imaging` |
 | `endoscopy` | 18751-8 Endoscopy study | the study's code, else 18751-8 | text only (v2-0074 has no endoscopy code) | `procedure` |
 | `visit` | 34108-1 Outpatient Note | (no report) | | |
+| `procedure` | 28570-0 Procedure Note | (no report) | | |
 | `vaccination` | 87273-9 Immunization Note | (no report) | | |
 
 `DiagnosticReport.code.text` is the printed title of the examination.
@@ -141,6 +143,16 @@ three reports of one afternoon give one blood pressure, not three.
 History, allergies and medications stay narrative sections: a doctor's free-text line is not turned into
 `AllergyIntolerance` or `MedicationStatement` resources.
 
+### Procedure notes
+
+| Resource | Content |
+|---|---|
+| `Procedure` | `status` completed, `code.text` = the printed name (the paper carries no code and the catalog has none for procedures), `performedDateTime`, `performer.actor.display` = `staff.performed_by` (else `signed_by`) with `onBehalfOf` = the Organization (the Organization alone when no doctor is printed), `note` = the printed description, then `Anesthesia: …` when printed, `followUp.text` = printed advice, `reasonReference` → the Condition. |
+| `Condition` | The printed diagnosis, identifier `<document id>/diagnosis`: `code.text` only, `category` encounter-diagnosis, `verificationStatus` confirmed, `recordedDate`, `asserter.display`. When the paper prints a postoperative diagnosis too, that one is the Condition and the preoperative one is `Procedure.reasonCode.text`. |
+
+No `Encounter` is created: the paper does not say whether the patient was admitted. The `DocumentReference`
+points at the Procedure (`context.related`).
+
 ### Vaccinations
 
 A slip shows that a vaccine was ordered, not that it was given, so each dose carries the owner's answer
@@ -186,5 +198,5 @@ current document still produces is never deleted. Configuration: `PAPER_FHIR_URL
 `PAPER_FHIR_CLIENT_ID`, `PAPER_FHIR_CLIENT_SECRET`.
 
 A read-only client for agents needs, beyond what the other archives' policies list: `DiagnosticReport`,
-`Organization`, `Encounter`, `Composition`, `Condition`, `Immunization`, `ImmunizationRecommendation`,
+`Organization`, `Encounter`, `Composition`, `Condition`, `Procedure`, `Immunization`, `ImmunizationRecommendation`,
 `MedicationRequest`.

@@ -21,6 +21,7 @@ def template(dtype: str) -> dict:
         "ecg": {"ecg": {"measurements": {k: "" for k in extraction.ECG["measurements"]}, "rhythm": "",
                         "machine_interpretation": "", "conclusion": "", "device": ""}},
         "visit": {"visit": {k: "" for k in extraction.VISIT_SECTIONS}},
+        "procedure": {"procedure": {k: "" for k in extraction.PROCEDURE}},
         "vaccination": {"vaccination": {"screening": "", "dose_unit": "", "doses": [
             {**{k: "" for k in extraction.DOSE}, "key": None, "date": None, "expiry": None, "next_due": None,
              "given": None, "page": 1}],
@@ -147,8 +148,8 @@ def review_compact(doc: store.Document, issues: list[dict], parsed: dict) -> str
         spec = catalog.codes()["ecg"]
         out += [f"{k}: {v['text']} {spec[k]['unit']}" for k, v in parsed["ecg"].items()]
         out += [f"{k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion") if k in x["ecg"]]
-    elif parsed["type"] == "visit" and "visit" in x:
-        out += [f"{k}: {v}" for k, v in x["visit"].items()]
+    elif parsed["type"] in ("visit", "procedure") and parsed["type"] in x:
+        out += [f"{k}: {v}" for k, v in x[parsed["type"]].items()]
     elif parsed["type"] == "vaccination" and "vaccination" in x:
         if "screening" in x["vaccination"]:
             out.append(f"screening: {x['vaccination']['screening']}")
@@ -185,8 +186,8 @@ def cmd_review(args, root):
         spec = catalog.codes()["ecg"]
         out += [""] + [f"- {k}: {v['text']} {spec[k]['unit']}" for k, v in parsed["ecg"].items()]
         out += [f"- {k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion", "device") if k in x["ecg"]]
-    elif parsed["type"] == "visit" and "visit" in x:
-        out += [""] + [f"- {k}: {v}" for k, v in x["visit"].items()]
+    elif parsed["type"] in ("visit", "procedure") and parsed["type"] in x:
+        out += [""] + [f"- {k}: {v}" for k, v in x[parsed["type"]].items()]
     elif parsed["type"] == "vaccination" and "vaccination" in x:
         if "screening" in x["vaccination"]:
             out += ["", f"- screening: {x['vaccination']['screening']}"]

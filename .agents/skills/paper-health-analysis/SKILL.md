@@ -1,6 +1,6 @@
 ---
 name: paper-health-analysis
-description: Answer questions about a person's paper medical records stored in Medplum by paper-archive - lab results (blood count, glucose, lipids, liver and kidney tests, thyroid, urine), ECG, ultrasound, echocardiography, X-ray and endoscopy reports, clinic visit notes, vaccinations (doses given, ordered, next doses due) and the vital signs printed on them. Use for questions like "what was my LDL last time", "how has my cholesterol changed", "what did the abdominal ultrasound say", "list my documents from 2023", "when was my last flu shot", "which vaccines are due", "send me the ECG scan".
+description: Answer questions about a person's paper medical records stored in Medplum by paper-archive - lab results (blood count, glucose, lipids, liver and kidney tests, thyroid, urine), ECG, ultrasound, echocardiography, X-ray and endoscopy reports, clinic visit notes, procedure and operation notes, vaccinations (doses given, ordered, next doses due) and the vital signs printed on them. Use for questions like "what was my LDL last time", "how has my cholesterol changed", "what did the abdominal ultrasound say", "list my documents from 2023", "when was my last flu shot", "which vaccines are due", "send me the ECG scan".
 ---
 
 # Paper records analysis (read-only)
@@ -36,8 +36,9 @@ test (`hba1c`, `egfr`, `urea`, `alt`, ...).
    different LOINC codes of the same catalog entry, and `results <key>` returns both. Never compare numbers
    across units; convert only if asked, and say you converted.
 5. **Reference ranges differ between labs.** Compare a value with the range printed on its own report.
-6. **Imaging, ECG, endoscopy and visit notes** are text: quote the conclusion (impression, diagnosis)
-   verbatim, then summarise the findings in plain words if asked, without adding findings.
+6. **Imaging, ECG, endoscopy, visit and procedure notes** are text: quote the conclusion (impression, diagnosis)
+   verbatim, then summarise the findings in plain words if asked, without adding findings. A procedure note
+   (`document <id>` → `procedure`) says what was done, when, by whom and for which diagnosis.
 7. **Vaccinations** have three states; never merge them. `given` (the owner confirmed it at review),
    `not given`, and `ordered, not known whether given` (a slip whose shot nobody confirmed): only `given`
    counts as a dose received. `next dose due (printed)` is the appointment printed on that paper; a later

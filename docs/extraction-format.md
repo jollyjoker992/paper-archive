@@ -24,7 +24,7 @@ Unknown fields are errors. A field that is null, an empty string or absent means
 
 | Field | Rule |
 |---|---|
-| `document.type` | `lab-report`, `ecg`, `ultrasound`, `xray`, `endoscopy`, `visit`, `vaccination`. Decides which body is required. |
+| `document.type` | `lab-report`, `ecg`, `ultrasound`, `xray`, `endoscopy`, `visit`, `procedure`, `vaccination`. Decides which body is required. |
 | `document.document_number` | Report or sample number printed on the paper. |
 | `patient.*` | As printed; only what is printed. Used solely to check the document belongs to the person it was filed under. `age` is the printed age in years. |
 | `facility.name` | Required. Becomes the FHIR Organization (one per distinct name). |
@@ -63,6 +63,12 @@ A list of rows:
 
 `reason`, `medications`, `family_history`, `past_history`, `allergies`, `examination`, `tests`, `diagnosis`,
 `advice`: each the printed text of that section.
+
+## `procedure` (procedure or operation note)
+
+`name` (required: the printed name of what was done), `diagnosis`, `postoperative_diagnosis` (only when the
+paper prints one of its own), `anesthesia`, `description` (required: the printed account of the procedure),
+`advice`. The doctor who did it is `staff.performed_by`, the one who countersigned `staff.signed_by`.
 
 ## `vaccination` (slip, booklet, certificate)
 

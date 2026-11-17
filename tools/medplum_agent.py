@@ -266,6 +266,17 @@ def document(doc: str) -> dict:
     composition = next(iter(search("Composition", identifier=f"{system('paper-composition')}|{doc_id}")), None)
     if composition:
         out["sections"] = {s["title"]: s["text"]["div"] for s in composition.get("section") or []}
+    procedure = next(iter(search("Procedure", identifier=f"{system('paper-procedure')}|{doc_id}")), None)
+    if procedure:
+        condition = next(iter(search("Condition", identifier=f"{system('paper-condition')}|{doc_id}/diagnosis")), None)
+        notes = [n["text"] for n in procedure.get("note") or []]
+        out["procedure"] = {
+            "name": (procedure.get("code") or {}).get("text"), "performed": procedure.get("performedDateTime"),
+            "performed_by": (((procedure.get("performer") or [{}])[0]).get("actor") or {}).get("display"),
+            "diagnosis": ((condition or {}).get("code") or {}).get("text"),
+            "reason": ((procedure.get("reasonCode") or [{}])[0]).get("text"),
+            "description": notes[0] if notes else None, "notes": notes[1:],
+            "advice": ((procedure.get("followUp") or [{}])[0]).get("text")}
     subject = (ref.get("subject") or {}).get("reference", "")
     if subject.startswith("Patient/") and (ref.get("type") or {}).get("text") == "Vaccination record":
         found = (search("Immunization", patient=subject) + search("MedicationRequest", subject=subject)

@@ -21,7 +21,7 @@ Levels: **error** blocks approval and mapping. **warning** blocks approval until
 |---|---|
 | `E-SCHEMA` | Unknown field, missing required field, wrong type (a value must be the printed string, not a number), bad date. |
 | `E-FORMAT` | `format` is not `paper-archive/extraction/1`. |
-| `E-BODY` | The body does not fit the document type (`results`, `ecg`, `study`, `visit`, `vaccination`). |
+| `E-BODY` | The body does not fit the document type (`results`, `ecg`, `study`, `visit`, `procedure`, `vaccination`). |
 | `E-EMPTY` | A lab report without results, an ECG or visit with nothing in it, a vaccination document without doses or appointments. |
 
 ## Whose document, and when
@@ -83,13 +83,13 @@ The interpretation stored is only ever the paper's: a printed flag, a `marked` v
 range, a word result, or an index under its printed rule. A value outside its range with no mark gets no
 interpretation, only `W-FLAG-MISSING`.
 
-## ECG, studies, visits, vitals
+## ECG, studies, visits, procedures, vitals
 
 | Code | Meaning |
 |---|---|
 | `E-VALUE-NOT-NUMBER`, `E-IMPLAUSIBLE` | ECG measurement not a number or outside its range (`codes.json` → `ecg`). |
 | `W-CROSS-CHECK` | RR does not fit the heart rate; QTc fits no usual correction (Bazett, Fridericia, Framingham, Hodges, ±25 ms) of QT at that rate. |
-| `W-NO-CONCLUSION` | No conclusion/impression/diagnosis transcribed. |
+| `W-NO-CONCLUSION` | No conclusion/impression/diagnosis transcribed (a procedure note: neither `diagnosis` nor `postoperative_diagnosis`). |
 | `E-STUDY-UNKNOWN`, `E-STUDY-TYPE` | `study.key` not in the catalog, or of another document type. |
 | `W-STUDY-AVAILABLE` | No key although the catalog has the study. |
 | `W-VITAL-UNUSABLE` | A header vital sign that is impossible, not a number, or a BMI that does not follow from height and weight. It is left out of FHIR; the document is not blocked, because hospital software really prints `0kg`, `1600cm`, `BMI: NaN`. |

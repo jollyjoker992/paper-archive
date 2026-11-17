@@ -93,7 +93,7 @@ class Parsing(unittest.TestCase):
 
 class Rules(unittest.TestCase):
     def test_fixtures_are_clean(self):
-        for name in ("lab-report", "lab-report-columns", "ecg", "ultrasound", "xray", "echo", "visit", "vaccination",
+        for name in ("lab-report", "lab-report-columns", "ecg", "ultrasound", "xray", "echo", "visit", "procedure", "vaccination",
                      "vaccination-booklet", "vaccination-card"):
             issues, _ = check(fixture(name))
             self.assertEqual(codes(issues, "error") + codes(issues, "warning"), [], name)
@@ -133,6 +133,19 @@ class Rules(unittest.TestCase):
         self.assertIn("E-VALUE-NOT-QUALITATIVE", codes(check(self.columns(6, reference=None))[0]))
         self.assertIn("E-UNIT-MISSING", codes(check(self.columns(0, reference=None))[0]))
         self.assertIn("E-IMPLAUSIBLE", codes(check(self.columns(7, value="1.500"))[0]))
+
+    def test_procedure_note(self):
+        doc = fixture("procedure")
+        del doc["procedure"]["diagnosis"]
+        self.assertEqual(codes(check(doc)[0]), ["W-NO-CONCLUSION"])
+        doc["procedure"]["postoperative_diagnosis"] = "Áp xe da"
+        self.assertEqual(codes(check(doc)[0]), [])
+        doc["procedure"]["description"] = ""                                # required: what was done
+        self.assertEqual(codes(check(doc)[0]), ["E-SCHEMA"])
+        doc = fixture("procedure")
+        doc["study"] = fixture("xray")["study"]
+        self.assertEqual(codes(check(doc)[0]), ["E-BODY"])
+        self.assertEqual(extraction.validate(cli.template("procedure"))[0][0]["code"], "E-SCHEMA")
 
     def test_vitals_and_age(self):
         _, parsed = check(fixture("endoscopy"))
@@ -645,6 +658,42 @@ class Archive(unittest.TestCase):
         self.assertIn("<br/>", composition["section"][5]["text"]["div"])
         self.assertEqual(reference["context"]["related"][0]["reference"].split("?")[0], "Composition")
         self.assertEqual(len([r for r in res if r["resourceType"] == "Observation"]), 6)        # the six vital signs
+
+    def test_procedure_mapping(self):
+        doc = self.add("procedure")
+        self.map()
+        res = self.resources(doc)
+        self.assertEqual([r["resourceType"] for r in res], ["DocumentReference", "Procedure", "Condition"])
+        reference, procedure, condition = res
+        self.assertEqual(reference["type"]["coding"][0]["code"], "28570-0")
+        self.assertEqual(reference["description"], "Incision of Abscess < 5cm")
+        self.assertEqual(reference["context"]["related"][0]["reference"].split("?")[0], "Procedure")
+        self.assertEqual(procedure["identifier"][0]["value"], doc.id)
+        self.assertEqual((procedure["status"], procedure["code"]), ("completed", {"text": "Incision of Abscess < 5cm"}))
+        self.assertEqual(procedure["performedDateTime"], "2026-10-20T09:15:00+07:00")
+        self.assertEqual(procedure["performer"][0]["actor"], {"display": "Bs Lê Thị Mẫu"})      # who did it, not who signed
+        self.assertTrue(procedure["performer"][0]["onBehalfOf"]["reference"].startswith("Organization?"))
+        self.assertTrue(procedure["note"][0]["text"].startswith("Sát trùng bề mặt"))
+        self.assertEqual(procedure["followUp"], [{"text": "Thay băng hằng ngày. Tái khám sau 3 ngày."}])
+        self.assertNotIn("reasonCode", procedure)
+        self.assertEqual(procedure["reasonReference"][0]["reference"].split("|")[1], f"{doc.id}/diagnosis")
+        self.assertEqual(condition["code"], {"text": "Áp xe da cẳng tay Phải"})
+        self.assertNotIn("encounter", condition)                    # the paper does not say outpatient or inpatient
+
+        changed = fixture("procedure")
+        changed["procedure"].update(postoperative_diagnosis="Áp xe da đã dẫn lưu", anesthesia="Tê tại chỗ")
+        del changed["procedure"]["advice"], changed["staff"]
+        changed["document"]["document_number"] = "000123_2610270830"       # another procedure, a week later
+        changed["dates"] = {"performed": "2026-10-27T08:30"}
+        other = self.add("procedure", photo="-2", content=changed)
+        self.map()
+        _, procedure, condition = self.resources(other)
+        self.assertEqual(condition["code"], {"text": "Áp xe da đã dẫn lưu"})
+        self.assertEqual(procedure["reasonCode"], [{"text": "Áp xe da cẳng tay Phải"}])
+        self.assertEqual(procedure["note"][1], {"text": "Anesthesia: Tê tại chỗ"})
+        self.assertTrue(procedure["performer"][0]["actor"]["reference"].startswith("Organization?"))
+        self.assertNotIn("followUp", procedure)
+        self.assertNotIn("asserter", condition)
 
     def test_vaccination_mapping(self):
         doc = self.add("vaccination")

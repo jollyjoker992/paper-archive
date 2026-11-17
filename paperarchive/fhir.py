@@ -25,7 +25,7 @@ SERVICE_SECTION = "http://terminology.hl7.org/CodeSystem/v2-0074"
 SECTION = {"lab-report": "LAB", "ecg": "EC", "ultrasound": "RUS", "xray": "RX"}      # endoscopy: no v2-0074 code
 TYPE_TEXT = {"lab-report": "Laboratory report", "ecg": "Electrocardiogram", "ultrasound": "Ultrasound report",
              "xray": "X-ray report", "endoscopy": "Endoscopy report", "visit": "Outpatient visit note",
-             "vaccination": "Vaccination record"}
+             "procedure": "Procedure note", "vaccination": "Vaccination record"}
 OBS_KIND = {"lab-report": "laboratory", "ecg": "procedure", "ultrasound": "imaging", "xray": "imaging",
             "endoscopy": "procedure"}
 VISIT_TITLES = {"reason": "Reason for visit", "medications": "Current medications", "family_history": "Family history",
@@ -269,6 +269,42 @@ class DocumentMapper:
         reference["context"]["related"] = [self.ref("Composition", "paper-composition", self.doc.id)]
         return out
 
+    # -- procedure note ------------------------------------------------------------
+
+    def procedure(self, reference: dict) -> list[dict]:
+        """A procedure or operation note: the Procedure that was done and the diagnosis it was done for. The
+        paper does not say outpatient or inpatient, so no Encounter is made."""
+        printed, staff = self.x["procedure"], self.x.get("staff", {})
+        doctor = staff.get("performed_by") or staff.get("signed_by")
+        diagnosis = printed.get("postoperative_diagnosis") or printed.get("diagnosis")
+        procedure = {"resourceType": "Procedure", "identifier": self.ident("paper-procedure", self.doc.id),
+                     "status": "completed", "code": {"text": printed["name"]}, "subject": self.patient,
+                     "performedDateTime": self.effective,
+                     "performer": [{"actor": {"display": doctor}, "onBehalfOf": self.org} if doctor
+                                   else {"actor": self.org}]}
+        out = [procedure]
+        if "postoperative_diagnosis" in printed and "diagnosis" in printed:
+            procedure["reasonCode"] = [{"text": printed["diagnosis"]}]
+        if diagnosis:
+            condition = {
+                "resourceType": "Condition", "identifier": self.ident("paper-condition", f"{self.doc.id}/diagnosis"),
+                "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                                                   "code": "confirmed"}]},
+                "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                                          "code": "encounter-diagnosis", "display": "Encounter Diagnosis"}]}],
+                "code": {"text": diagnosis}, "subject": self.patient, "recordedDate": self.effective}
+            if doctor:
+                condition["asserter"] = {"display": doctor}
+            procedure["reasonReference"] = [self.ref("Condition", "paper-condition", f"{self.doc.id}/diagnosis")]
+            out.append(condition)
+        procedure["note"] = [{"text": printed["description"]}]
+        if "anesthesia" in printed:
+            procedure["note"].append({"text": f"Anesthesia: {printed['anesthesia']}"})
+        if "advice" in printed:
+            procedure["followUp"] = [{"text": printed["advice"]}]
+        reference["context"]["related"] = [self.ref("Procedure", "paper-procedure", self.doc.id)]
+        return out
+
     # -- vaccination ---------------------------------------------------------------
 
     def vaccination(self, reference: dict) -> list[dict]:
@@ -371,7 +407,8 @@ class DocumentMapper:
     def resources(self) -> list[dict]:
         x, meta, review = self.x, self.doc.meta, self.doc.review()
         study = self.parsed["study"]
-        title = x.get("study", {}).get("procedure") or x["document"].get("title") or TYPE_TEXT[self.type]
+        title = (x.get("study", {}).get("procedure") or x.get("procedure", {}).get("name") or x["document"].get("title")
+                 or TYPE_TEXT[self.type])
         transcription = [{"url": "agent", "valueString": " ".join(filter(None, [
             x["extracted_by"]["agent"], x["extracted_by"].get("model")]))},
                          {"url": "reviewedBy", "valueString": review["approved_by"]},
@@ -398,6 +435,8 @@ class DocumentMapper:
                                             "value": x["document"]["document_number"]})
         if self.type == "visit":
             return [reference, *self.visit(reference), *self.vitals()]
+        if self.type == "procedure":
+            return [reference, *self.procedure(reference), *self.vitals()]
         if self.type == "vaccination":
             return [reference, *self.vaccination(reference), *self.vitals()]
 

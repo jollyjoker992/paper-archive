@@ -1,0 +1,36 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "procedure",
+  "language": "vi",
+  "title": "TƯỜNG TRÌNH PHẪU THUẬT - THỦ THUẬT",
+  "document_number": "000123_2610200915",
+  "pages": 1
+ },
+ "patient": {
+  "name": "Trần Thị Ví Dụ",
+  "age": 41,
+  "sex": "female"
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ"
+ },
+ "staff": {
+  "performed_by": "Bs Lê Thị Mẫu",
+  "signed_by": "Bs Nguyễn Văn Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-20T09:15",
+  "reported": "2026-10-20"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "procedure": {
+  "name": "Incision of Abscess < 5cm",
+  "diagnosis": "Áp xe da cẳng tay Phải",
+  "description": "Sát trùng bề mặt, tiêm tê tại chỗ, xẻ rạch ổ áp xe, nạo sạch mủ, đặt meche dẫn lưu,\nbăng ép, kiểm tra không chảy máu thấm băng.",
+  "advice": "Thay băng hằng ngày. Tái khám sau 3 ngày."
+ }
+}

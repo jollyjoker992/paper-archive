@@ -29,6 +29,8 @@ STUDY = {"key": S, "procedure": (S, True), "indication": S, "technique": S, "fin
 VISIT_SECTIONS = ("reason", "medications", "family_history", "past_history", "allergies", "examination", "tests",
                   "diagnosis", "advice")
 VISIT = {k: S for k in VISIT_SECTIONS}
+PROCEDURE = {"name": (S, True), "diagnosis": S, "postoperative_diagnosis": S, "anesthesia": S,
+             "description": (S, True), "advice": S}
 GIVEN = ("yes", "no", "unknown")
 DOSE = {"vaccine": (S, True), "key": S, "disease": S, "dose_number": S, "date": WHEN, "lot": S, "expiry": MONTH,
         "manufacturer": S, "country": S, "route": S, "site": S, "dose_quantity": S, "given_by": S, "facility": S,
@@ -51,10 +53,11 @@ SCHEMA = {
     "ecg": ECG,
     "study": STUDY,
     "visit": VISIT,
+    "procedure": PROCEDURE,
     "vaccination": VACCINATION,
 }
 BODY = {"lab-report": "results", "ecg": "ecg", "ultrasound": "study", "xray": "study", "endoscopy": "study",
-        "visit": "visit", "vaccination": "vaccination"}
+        "visit": "visit", "procedure": "procedure", "vaccination": "vaccination"}
 
 
 def clean(value):
@@ -290,6 +293,11 @@ def validate(raw: dict, person: dict | None = None, today: dt.date | None = None
         elif "diagnosis" not in visit:
             issues.append(issue(WARNING, "W-NO-CONCLUSION", "visit.diagnosis",
                                 "no diagnosis/conclusion transcribed: confirm the paper has none"))
+    elif dtype == "procedure":
+        procedure = doc.get("procedure", {})
+        if "diagnosis" not in procedure and "postoperative_diagnosis" not in procedure:
+            issues.append(issue(WARNING, "W-NO-CONCLUSION", "procedure.diagnosis",
+                                "no diagnosis transcribed: confirm the paper has none"))
     else:
         study = doc.get("study", {})
         parsed["study"] = _check_study(study, dtype, issues)

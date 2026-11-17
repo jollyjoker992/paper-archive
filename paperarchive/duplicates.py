@@ -28,7 +28,8 @@ def summary(parsed: dict) -> tuple[dict, tuple]:
     head = {"type": dtype, "when": when, "day": when[:10] if when else None,
             "facility": catalog.slug((x.get("facility") or {}).get("name", "")),
             "number": _norm((x.get("document") or {}).get("document_number", "")) or None,
-            "title": _norm((x.get("study") or {}).get("procedure") or (x.get("document") or {}).get("title") or "")}
+            "title": _norm((x.get("study") or {}).get("procedure") or (x.get("procedure") or {}).get("name")
+                           or (x.get("document") or {}).get("title") or "")}
     rows = {((r["code"] or {}).get("loinc") or _norm(r["name"]), _norm(r["value_text"]))
             for r in parsed["results"] + parsed["measurements"]}
     rows |= {(key, _norm(value["text"])) for key, value in parsed["ecg"].items()}
@@ -37,6 +38,7 @@ def summary(parsed: dict) -> tuple[dict, tuple]:
     rows |= {("due", (d["code"] or {}).get("cvx") or _norm(d["vaccine"]), d["date"]) for d in parsed["due"]}
     blocks = {"ecg": ("ecg", ("rhythm", "machine_interpretation", "conclusion")),
               "visit": ("visit", extraction.VISIT_SECTIONS),
+              "procedure": ("procedure", ("diagnosis", "postoperative_diagnosis", "description")),
               "vaccination": ("vaccination", ("screening",))}.get(dtype, ("study", ("findings", "impression")))
     section = x.get(blocks[0]) or {}
     texts = tuple(_norm(section[k]) for k in blocks[1] if section.get(k))
