@@ -7,13 +7,14 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from paperarchive import DEFAULT_BASE, catalog, extraction, fhir, load, pdf, store  # noqa: E402
+from paperarchive import DEFAULT_BASE, catalog, cli, duplicates, extraction, fhir, load, pdf, store  # noqa: E402
 
 FIXTURES = REPO / "tests" / "fixtures"
 TODAY = dt.date(2026, 11, 17)
@@ -259,11 +260,12 @@ class Archive(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         shutil.copy(FIXTURES / "people.toml", self.root / "people.toml")
 
-    def add(self, name: str, approve=True, accept=False) -> store.Document:
-        scan = self.root / f"{name}.jpg"
-        scan.write_bytes(FAKE_JPEG + name.encode())
+    def add(self, name: str, approve=True, accept=False, photo="", content=None) -> store.Document:
+        """Take a fixture in. `photo` makes another photograph of it (other bytes); `content` replaces it."""
+        scan = self.root / f"{name}{photo}.jpg"
+        scan.write_bytes(FAKE_JPEG + (name + photo).encode())
         doc = store.intake(self.root, "example", [scan])
-        doc.extraction_path.write_text(json.dumps(fixture(name), ensure_ascii=False), encoding="utf-8")
+        doc.extraction_path.write_text(json.dumps(content or fixture(name), ensure_ascii=False), encoding="utf-8")
         if approve:
             issues, _ = extraction.validate(doc.extraction(), PERSON, TODAY)
             store.approve(doc, "Owner", issues, accept_warnings=accept)
@@ -285,6 +287,91 @@ class Archive(unittest.TestCase):
             store.intake(self.root, "example", [self.root / "ecg.jpg"])
         with self.assertRaises(store.ArchiveError):
             store.intake(self.root, "nobody", [self.root / "ecg.jpg"])
+
+    def checked(self, doc):
+        with unittest.mock.patch.object(extraction.dt, "date", wraps=dt.date) as fake:
+            fake.today.return_value = TODAY
+            return cli._checked(self.root, doc)
+
+    def test_intake_refuses_pages_already_in(self):
+        pages = [self.root / f"page{n}.jpg" for n in (1, 2, 3)]
+        for n, page in enumerate(pages, 1):
+            page.write_bytes(FAKE_JPEG + bytes([n]))
+        first = store.intake(self.root, "example", pages[:1])
+        with self.assertRaisesRegex(store.ArchiveError, f"page1.jpg is already in the archive: {first.id}/original/01-page1.jpg"):
+            store.intake(self.root, "example", pages)                # the whole report after its first page
+        with self.assertRaisesRegex(store.ArchiveError, "given twice"):
+            store.intake(self.root, "example", [pages[1], pages[1]])
+        whole = store.intake(self.root, "example", pages[1:])
+        with self.assertRaisesRegex(store.ArchiveError, "document.pdf"):  # the PDF built from photos, given back
+            store.intake(self.root, "example", [whole.path / "document.pdf"])
+
+    def test_same_paper_photographed_twice(self):
+        first = self.add("lab-report")
+        second = self.add("lab-report", approve=False, photo="-again")
+        self.assertEqual([i["code"] for i in self.checked(first)[0] if i["level"] != "info"], [])
+        issues, _ = self.checked(second)
+        dup = [i for i in issues if i["code"] == "E-DUPLICATE-DOCUMENT"]
+        self.assertEqual(len(dup), 1)
+        self.assertIn(first.id, dup[0]["message"])
+        with self.assertRaises(store.ArchiveError):
+            store.approve(second, "Owner", issues, accept_warnings=True)
+        result = self.map()
+        self.assertEqual(result["mapped"], [first.id])
+        self.assertEqual(result["skipped"], {second.id: "extracted"})
+
+    def test_duplicate_approved_before_the_first_was_checked_is_not_mapped(self):
+        first = self.add("ecg")
+        second = self.add("ecg", photo="-again")                       # approved without the archive check
+        result = self.map()
+        self.assertIn(first.id, result["mapped"])
+        self.assertEqual(list(result["failed"]), [second.id])
+
+    def test_same_paper_read_differently(self):
+        first = self.add("lab-report")
+        misread = fixture("lab-report")
+        misread["results"][16]["value"] = "5,9"                       # one digit read differently
+        second = self.add("lab-report", approve=False, photo="-again", content=misread)
+        self.assertIn("W-POSSIBLE-DUPLICATE", [i["code"] for i in self.checked(second)[0]])
+        self.assertNotIn("E-DUPLICATE-DOCUMENT", [i["code"] for i in self.checked(second)[0]])
+        partial = fixture("lab-report")
+        partial["results"] = partial["results"][16:]                  # page 2 taken in alone, re-photographed
+        partial["document"]["title"] = "SINH HÓA"
+        third = self.add("lab-report", approve=False, photo="-page2", content=partial)
+        self.assertIn("W-POSSIBLE-DUPLICATE", [i["code"] for i in self.checked(third)[0]])
+
+    def test_different_papers_are_not_duplicates(self):
+        def report(number, **study):
+            doc = fixture("ultrasound")
+            doc["document"]["document_number"] = number
+            doc["study"].update(study)
+            return doc
+
+        def dups(doc):
+            return [i["code"] for i in self.checked(doc)[0] if "DUPLICATE" in i["code"]]
+
+        abdomen = self.add("ultrasound", approve=False, photo="-a", content=report("US-0001"))
+        # Same day, facility and printed number, another examination (hospitals do reuse a number).
+        thyroid = self.add("ultrasound", approve=False, photo="-b", content=report(
+            "US-0001", key="us-thyroid", procedure="SIÊU ÂM TUYẾN GIÁP",
+            findings="Tuyến giáp: kích thước và hồi âm bình thường.", impression="Bình thường."))
+        # Same content under a different printed number: two reports.
+        renumbered = self.add("ultrasound", approve=False, photo="-c", content=report("US-0002"))
+        self.assertEqual(dups(abdomen) + dups(thyroid) + dups(renumbered), [])
+        # The same paper again, with its number left out of the transcription: still the same paper.
+        again = self.add("ultrasound", approve=False, photo="-d", content=report(None))
+        self.assertEqual(dups(again), ["E-DUPLICATE-DOCUMENT", "E-DUPLICATE-DOCUMENT"])
+
+    def test_remove(self):
+        first = self.add("xray")
+        second = self.add("xray", approve=False, photo="-again")
+        with unittest.mock.patch.dict("os.environ", {"PAPER_ARCHIVE_DIR": str(self.root)}):
+            self.assertEqual(cli.main(["remove", second.id[:6]]), 2)    # a prefix is not enough
+            self.assertTrue(second.path.exists())
+            self.assertEqual(cli.main(["remove", second.id]), 0)
+        self.assertFalse(second.path.exists())
+        self.assertEqual([d.id for d in store.documents(self.root)], [first.id])
+        self.assertEqual([i for i in self.checked(first)[0] if i["level"] != "info"], [])
 
     def test_only_approved_documents_are_mapped(self):
         doc = self.add("xray", approve=False)

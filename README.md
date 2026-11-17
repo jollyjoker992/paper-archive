@@ -28,6 +28,9 @@ without a person having compared the review sheet with the paper.
 | Vital signs printed in any header | `Observation` (vital-signs), once per reading |
 | Every document | `DocumentReference` + the PDF as `Binary`; every result links back to its scan |
 
+The same paper is stored once: intake refuses files already in the archive, and a paper photographed or
+scanned again is recognised from its content and held back until you decide which copy stays.
+
 Written first for Vietnamese hospital reports (units inside the reference column, `Nam`/`Nữ` ranges,
 abnormal values marked by colour, a second column in other units), in Vietnamese or English.
 

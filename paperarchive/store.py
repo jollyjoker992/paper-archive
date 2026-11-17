@@ -98,6 +98,11 @@ class Document:
         self.meta = json.loads((path / "meta.json").read_text(encoding="utf-8"))
 
     @property
+    def order(self) -> tuple:
+        """Intake order: time, then id (documents taken in before microsecond times existed)."""
+        return dt.datetime.fromisoformat(self.meta["intake_at"]), self.id
+
+    @property
     def extraction_path(self) -> Path:
         return self.path / "extraction.json"
 
@@ -128,7 +133,9 @@ class Document:
 
 def documents(root: Path) -> list[Document]:
     folder = root / "documents"
-    return [Document(p) for p in sorted(folder.iterdir()) if (p / "meta.json").is_file()] if folder.is_dir() else []
+    if not folder.is_dir():
+        return []
+    return [Document(p) for p in sorted(folder.iterdir()) if p.name.startswith("d_") and (p / "meta.json").is_file()]
 
 
 def document(root: Path, doc_id: str) -> Document:
@@ -154,6 +161,19 @@ def intake(root: Path, person_id: str, files: list[Path]) -> Document:
         raise ArchiveError(f"unsupported file type: {', '.join(sorted(suffixes - pdf.IMAGE_SUFFIXES))}")
 
     digests = [sha256(f) for f in files]
+    if len(set(digests)) != len(digests):
+        raise ArchiveError("the same file is given twice")
+    known = {}
+    for other in documents(root):
+        for original in other.meta["originals"]:
+            known.setdefault(original["sha256"], (other, original["file"]))
+        known.setdefault(other.meta["pdf"]["sha256"], (other, other.meta["pdf"]["file"]))
+    for src, digest in zip(files, digests):
+        if digest in known:
+            other, where = known[digest]
+            raise ArchiveError(f"{src.name} is already in the archive: {other.id}/{where} "
+                               f"({other.meta['person']}, state: {other.state()}). Take in only the pages that "
+                               "are not there yet, or remove that document first")
     doc_id = "d_" + hashlib.sha256("\n".join(digests).encode()).hexdigest()[:16]
     folder = root / "documents" / doc_id
     if folder.exists():
@@ -176,7 +196,8 @@ def intake(root: Path, person_id: str, files: list[Path]) -> Document:
             pages = pdf.images_to_pdf([work / o["file"] for o in originals], target)
         raw = target.read_bytes()
         write_json(work / "meta.json", {
-            "id": doc_id, "person": person_id, "intake_at": now_iso(), "originals": originals,
+            "id": doc_id, "person": person_id,
+            "intake_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="microseconds"), "originals": originals,
             "pdf": {"file": "document.pdf", "sha256": hashlib.sha256(raw).hexdigest(),
                     "sha1_base64": base64.b64encode(hashlib.sha1(raw).digest()).decode(),
                     "bytes": len(raw), "pages": pages}})
@@ -185,6 +206,11 @@ def intake(root: Path, person_id: str, files: list[Path]) -> Document:
         shutil.rmtree(work, ignore_errors=True)
         raise
     return Document(folder)
+
+
+def remove(doc: Document) -> None:
+    """Delete a document: scans, PDF, transcription, approval. The next map and load take it off the server."""
+    shutil.rmtree(doc.path)
 
 
 def approve(doc: Document, by: str, issues: list[dict], accept_warnings: bool) -> dict:

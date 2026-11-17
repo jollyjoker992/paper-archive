@@ -33,6 +33,10 @@ is tested. To take a document in, follow [`.agents/skills/paper-archive/SKILL.md
   only.
 - Never print or commit `.env` or any `PAPER_FHIR_*` secret. `load` writes to the family's Medplum: run it
   only when asked.
+- **The same paper only once.** Intake refuses files already in the archive. A paper photographed or
+  scanned again is caught by validation (`E-DUPLICATE-DOCUMENT`, `W-POSSIBLE-DUPLICATE`). Tell the owner
+  which documents look the same; `remove` deletes a document with its scans, so run it only on the owner's
+  word, for the id they chose.
 - Errors are never bypassed by editing the transcription away from what the paper says. If the paper itself
   is wrong (hospital software prints `Chiều cao: 1600cm`), transcribe it as printed: the validator knows
   which fields may be dropped (`W-VITAL-UNUSABLE`) and which block the document.
@@ -47,6 +51,7 @@ python3 paper_archive.py catalog find "<printed name>"   # catalog key for a tes
 python3 paper_archive.py validate <doc> [--json]         # every rule; exit 1 on errors
 python3 paper_archive.py review <doc>                    # the sheet the owner checks against the paper
 python3 paper_archive.py approve <doc> --by "<owner>"    # owner's decision only
+python3 paper_archive.py remove <full doc id>              # delete a document, e.g. a duplicate: owner's decision only
 python3 paper_archive.py map [<doc>] [--force]           # approved documents -> FHIR NDJSON
 python3 paper_archive.py load [--force]                  # -> Medplum (PAPER_FHIR_* in .env)
 python3 paper_archive.py status [--json]                 # intake | extracted | approved | mapped | loaded
@@ -67,7 +72,8 @@ Exit codes: `0` done, `1` validation errors or failed documents, `2` something t
 | Validation rules (every code) | `docs/validation-rules.md`, `paperarchive/extraction.py` |
 | FHIR mapping | `docs/fhir-mapping.md`, `paperarchive/fhir.py` |
 | Catalog: tests, units, ECG, vitals, studies, note sections | `paperarchive/catalog/analytes.json`, `units.json`, `codes.json` |
-| Archive layout, intake, approval | `paperarchive/store.py`, PDF builder `paperarchive/pdf.py` |
+| Archive layout, intake, approval, removal | `paperarchive/store.py`, PDF builder `paperarchive/pdf.py` |
+| The same paper twice | `paperarchive/duplicates.py` (intake refuses known files in `store.py`) |
 | Loader | `paperarchive/load.py` (transaction of conditional updates per document) |
 | Skills | `.agents/skills/paper-archive/`, `.agents/skills/paper-catalog/` (`.claude/skills` links here) |
 | Tests | `tests/test_paper_archive.py`, made-up documents in `tests/fixtures/` |

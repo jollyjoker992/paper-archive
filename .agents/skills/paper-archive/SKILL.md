@@ -16,6 +16,10 @@ Look at every file before running anything. One document = one report as the hos
   A panel heading at the bottom of one page belongs to the first row of the next.
 - An X-ray film and its written report are one document: report first, film after.
 - Reports of the same day from different departments (ECG, echo, abdominal ultrasound) are separate documents.
+- Already filed? `paper_archive.py status` lists what the archive holds. Intake refuses a photo that is
+  already in (also as a page of another document): take in only the new pages. A paper photographed again
+  gets a new id; validation then reports `E-DUPLICATE-DOCUMENT` or `W-POSSIBLE-DUPLICATE` against the
+  earlier one (step 4).
 - Whose is it? The name on the paper decides `--person` (`paper_archive.py people`). If the person is not in
   `people.toml`, stop and ask the owner to add them.
 
@@ -75,6 +79,11 @@ python3 paper_archive.py validate <doc>
   mark, a mark on a value inside its range, an `uncertain` entry, a vital sign the hospital printed wrongly.
   Re-read the fields a warning names; if your transcription is right, leave it and let the owner decide.
 - **Notes** (`I-…`) need nothing.
+
+- **Duplicates**: `E-DUPLICATE-DOCUMENT` / `W-POSSIBLE-DUPLICATE` name the other document. Show the owner
+  both review sheets. If it is the same paper, the owner picks which copy goes and you run
+  `paper_archive.py remove <full id>` for that one only. Never remove on your own judgment, and never edit a
+  transcription to make two documents look different.
 
 `docs/validation-rules.md` explains every code. Never make an error go away by setting a field to null,
 dropping a row or changing a value away from the print.

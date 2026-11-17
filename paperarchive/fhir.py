@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import MAPPING_VERSION, catalog, extraction, store
+from . import MAPPING_VERSION, catalog, duplicates, extraction, store
 
 LOINC = "http://loinc.org"
 UCUM = "http://unitsofmeasure.org"
@@ -354,6 +354,7 @@ def map_all(root: Path, base: str, only: str | None = None, force: bool = False,
     previous = manifest.get("documents", {})
     result = {"mapped": [], "unchanged": [], "skipped": {}, "failed": {}}
     entries, organizations, vitals_seen = {}, {}, set()
+    index = duplicates.Index(root, people, today)
     for doc in store.documents(root):
         if not doc.approved():
             result["skipped"][doc.id] = doc.state()
@@ -361,6 +362,7 @@ def map_all(root: Path, base: str, only: str | None = None, force: bool = False,
             continue
         person = people.get(doc.meta["person"])
         issues, parsed = extraction.validate(doc.extraction(), person, today)
+        issues += index.issues(doc, parsed)
         errors = [i for i in issues if i["level"] == "error"]
         if not person or errors:
             result["failed"][doc.id] = (f"{len(errors)} validation error(s): run validate" if person else

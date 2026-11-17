@@ -7,7 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
-from . import DEFAULT_BASE, DOCUMENT_TYPES, EXTRACTION_FORMAT, MAPPING_VERSION, catalog, extraction, fhir, load, pdf, store
+from . import DEFAULT_BASE, DOCUMENT_TYPES, EXTRACTION_FORMAT, MAPPING_VERSION, catalog, duplicates, extraction, fhir, load, pdf, store
 
 EXIT_OK, EXIT_ISSUES, EXIT_CONFIG = 0, 1, 2
 
@@ -35,8 +35,10 @@ def template(dtype: str) -> dict:
 
 
 def _checked(root: Path, doc: store.Document):
-    person = store.load_people(root).get(doc.meta["person"])
-    return extraction.validate(doc.extraction(), person)
+    """Every rule, including the comparison with the other documents of the archive."""
+    people = store.load_people(root)
+    issues, parsed = extraction.validate(doc.extraction(), people.get(doc.meta["person"]))
+    return issues + duplicates.Index(root, people).issues(doc, parsed), parsed
 
 
 def cmd_people(args, root):
@@ -129,6 +131,18 @@ def cmd_approve(args, root):
     return EXIT_OK
 
 
+def cmd_remove(args, root):
+    doc = store.document(root, args.doc)
+    if args.doc != doc.id:
+        raise store.ArchiveError(f"give the full id to remove a document ({doc.id})")
+    state = doc.state()
+    store.remove(doc)
+    print(f"{doc.id}: removed ({doc.meta['person']}, was {state})")
+    if state == "mapped":
+        print("run map and load to take it off the FHIR server")
+    return EXIT_OK
+
+
 def cmd_map(args, root):
     only = store.document(root, args.doc).id if args.doc else None
     result = fhir.map_all(root, store.env("PAPER_FHIR_BASE", DEFAULT_BASE), only, args.force)
@@ -214,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--by", required=True, help="the person who compared the sheet with the paper")
     p.add_argument("--accept-warnings", action="store_true")
     p.set_defaults(fn=cmd_approve)
+    p = sub.add_parser("remove", help="delete a document, e.g. a duplicate (only on the owner's word)")
+    p.add_argument("doc", help="the full document id")
+    p.set_defaults(fn=cmd_remove)
     p = sub.add_parser("map", help="approved documents -> FHIR NDJSON")
     p.add_argument("doc", nargs="?")
     p.add_argument("--force", action="store_true")

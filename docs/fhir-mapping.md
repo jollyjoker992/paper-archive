@@ -16,6 +16,9 @@ first, never a near miss.
 | `fhir/manifest.json` | Mapping version, catalog version, base; per document the SHA-256 of its file. |
 | `fhir/load-manifest.json` | Per document: what was loaded, its identifiers and Binary id on the server. |
 
+A document with `E-DUPLICATE-DOCUMENT` is not mapped, even if it was approved before the other copy was
+taken in: the same paper is on the server once. A removed document leaves the server on the next `load`.
+
 A document is mapped again when its transcription, the mapping version, the catalog version or the base
 changes, or with `--force`. Output is deterministic: mapping twice gives the same bytes, so `load` has
 nothing to do. Resources have no `id`; references use `Type?identifier=<system>|<value>` and the server

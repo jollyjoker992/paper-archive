@@ -36,6 +36,20 @@ Levels: **error** blocks approval and mapping. **warning** blocks approval until
 | `E-DATE-MISSING` | No date the document's clinical time can be taken from. |
 | `E-DATE-FUTURE`, `E-DATE-BEFORE-BIRTH`, `E-DATE-ORDER` | A date after today, before birth, or collected > received > performed > reported out of order. |
 
+## The same paper twice
+
+Intake refuses any file already in the archive, whether it was taken in alone, as a page of another
+document, or is a `document.pdf` given back. Different bytes of the same paper (photographed again, scanned
+instead of photographed, a page taken in alone and later with the whole report) are found by comparing
+transcriptions with the person's other documents. Only the document taken in later carries the issue, so the
+first one keeps its approval and stays on the server. Reports with different printed numbers are never
+duplicates of each other, which matters because one printed number can cover several examinations.
+
+| Code | Meaning |
+|---|---|
+| `E-DUPLICATE-DOCUMENT` | Same person, type, facility, clinical date and time, no conflicting printed number, and every value and text identical: the same paper. It cannot be approved or mapped. The owner decides which copy goes; `paper_archive.py remove <full id>` deletes it. |
+| `W-POSSIBLE-DUPLICATE` | Same person, type, facility and day, and either the same title or at least half of the results identical, but the transcriptions differ: the same paper read differently, part of it taken in twice, a corrected report reissued, or two papers. The owner compares both with the paper. |
+
 ## Rows (lab results, study measurements)
 
 | Code | Meaning |
