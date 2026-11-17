@@ -12,6 +12,14 @@ You read the paper and write `extraction.json`: what is printed, as strings. You
 units, ranges, codes and resources are derived by code (`paperarchive/`), so every rule is in one place and
 is tested. To take a document in, follow [`.agents/skills/paper-archive/SKILL.md`](.agents/skills/paper-archive/SKILL.md).
 
+## Answering questions about the records: use Medplum, not `data/`
+
+Questions about someone's lab results, reports or visits are answered from Medplum with the read-only
+agent client, following [`.agents/skills/paper-health-analysis/SKILL.md`](.agents/skills/paper-health-analysis/SKILL.md)
+(`python3 tools/medplum_agent.py people|documents|document|results|pdf`; credentials
+`PAPER_FHIR_URL`, `PAPER_FHIR_AGENT_CLIENT_ID`, `PAPER_FHIR_AGENT_CLIENT_SECRET`). Medplum holds only
+approved documents. Reading transcriptions in `data/` to answer a question needs the owner's explicit OK.
+
 ## Rules
 
 - **Transcribe, do not interpret.** Every value is the printed string. Do not convert units, round, compute,
@@ -49,8 +57,9 @@ python3 paper_archive.py intake --person <id> <files>    # page photos in readin
 python3 paper_archive.py template <type>                 # empty extraction: lab-report ecg ultrasound xray endoscopy visit
 python3 paper_archive.py catalog find "<printed name>"   # catalog key for a test; --study for imaging/endoscopy
 python3 paper_archive.py validate <doc> [--json]         # every rule; exit 1 on errors
-python3 paper_archive.py review <doc>                    # the sheet the owner checks against the paper
+python3 paper_archive.py review <doc> [--compact]        # the sheet the owner checks against the paper (--compact: for a chat)
 python3 paper_archive.py approve <doc> --by "<owner>"    # owner's decision only
+python3 paper_archive.py rebuild-pdf <doc>|all             # document.pdf again from the original scans
 python3 paper_archive.py remove <full doc id>              # delete a document, e.g. a duplicate: owner's decision only
 python3 paper_archive.py map [<doc>] [--force]           # approved documents -> FHIR NDJSON
 python3 paper_archive.py load [--force]                  # -> Medplum (PAPER_FHIR_* in .env)
@@ -75,7 +84,8 @@ Exit codes: `0` done, `1` validation errors or failed documents, `2` something t
 | Archive layout, intake, approval, removal | `paperarchive/store.py`, PDF builder `paperarchive/pdf.py` |
 | The same paper twice | `paperarchive/duplicates.py` (intake refuses known files in `store.py`) |
 | Loader | `paperarchive/load.py` (transaction of conditional updates per document) |
-| Skills | `.agents/skills/paper-archive/`, `.agents/skills/paper-catalog/` (`.claude/skills` links here) |
+| Skills | `.agents/skills/paper-archive/` (intake), `paper-catalog/` (codes), `paper-health-analysis/` (questions) (`.claude/skills` links here) |
+| Read-only queries | `tools/medplum_agent.py` |
 | Tests | `tests/test_paper_archive.py`, made-up documents in `tests/fixtures/` |
 
 ## Changing the code

@@ -293,6 +293,37 @@ class Archive(unittest.TestCase):
             fake.today.return_value = TODAY
             return cli._checked(self.root, doc)
 
+    def test_photo_orientation_becomes_page_rotation(self):
+        tiff = b"MM\0*\0\0\0\x08" + b"\0\x01" + b"\x01\x12\0\x03\0\0\0\x01\0\x06\0\0" + b"\0\0\0\0"
+        app1 = b"\xff\xe1" + (len(tiff) + 8).to_bytes(2, "big") + b"Exif\0\0" + tiff
+        rotated = FAKE_JPEG[:2] + app1 + FAKE_JPEG[2:]                  # 48 x 64 pixels, orientation 6
+        self.assertEqual(pdf.jpeg_orientation(rotated), 6)
+        self.assertEqual(pdf.jpeg_orientation(FAKE_JPEG), 1)
+        page = self.root / "page.jpg"
+        page.write_bytes(rotated)
+        out = self.root / "out.pdf"
+        pdf.images_to_pdf([page], out)
+        self.assertIn(b"/Rotate 90", out.read_bytes())
+        self.assertIn(b"/MediaBox [0 0 446.25 595.0]", out.read_bytes())   # stored 48 x 64, shown 595 wide
+
+    def test_rebuild_pdf(self):
+        doc = self.add("xray")
+        before = dict(doc.meta["pdf"])
+        self.assertFalse(store.rebuild_pdf(doc))                          # same builder, same bytes
+        (doc.path / "document.pdf").write_bytes(b"%PDF-1.4 old")
+        doc.meta["pdf"]["sha256"] = "0" * 64
+        self.assertTrue(store.rebuild_pdf(doc))
+        self.assertEqual(store.Document(doc.path).meta["pdf"], before)
+
+    def test_compact_review(self):
+        doc = self.add("lab-report-columns", approve=False)
+        issues, parsed = self.checked(doc)
+        text = cli.review_compact(doc, issues, parsed)
+        self.assertIn("#1 MCV: 78.4 fL (( 85 - 95 fL )) L -> 787-2", text)
+        self.assertIn("#2 RDW_SD: 41.0 fL (( 35 - 46fL)) -> name only", text)
+        self.assertIn("[also 0.58]", text)
+        self.assertNotIn("|---", text)
+
     def test_intake_refuses_pages_already_in(self):
         pages = [self.root / f"page{n}.jpg" for n in (1, 2, 3)]
         for n, page in enumerate(pages, 1):
@@ -474,7 +505,7 @@ class Archive(unittest.TestCase):
     def test_vitals_are_stored_once(self):
         us, echo, endo = self.add("ultrasound"), self.add("echo"), self.add("endoscopy", accept=True)
         self.map()
-        vitals = {d.id: [r for r in self.resources(d) if r["identifier"][0]["system"].endswith("/paper-vital")]
+        vitals = {d.id: [r for r in self.resources(d) if r["identifier"][0]["value"].startswith("vital/")]
                   for d in (us, echo, endo)}
         first, second = sorted([us, echo], key=lambda d: d.id)
         self.assertEqual(len(vitals[first.id]), 5)                      # same readings on both papers of 2026-10-02

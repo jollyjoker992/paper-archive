@@ -169,7 +169,7 @@ class DocumentMapper:
         for key, v in self.parsed["vitals"].items():
             text = v["text"].replace(" ", "")
             obs = {"resourceType": "Observation",
-                   "identifier": self.ident("paper-vital", f"{self.person['id']}/{day}/{key}/{text}"),
+                   "identifier": self.ident("paper-observation", f"vital/{self.person['id']}/{day}/{key}/{text}"),
                    "status": "final",
                    "category": [{"coding": [{"system": OBS_CATEGORY, "code": "vital-signs"}]}],
                    "code": loinc(spec[key]), "subject": self.patient, "effectiveDateTime": day,
@@ -372,7 +372,7 @@ def map_all(root: Path, base: str, only: str | None = None, force: bool = False,
         resources = []
         for resource in mapper.resources():
             key = ident_of(resource)
-            if key["system"].endswith("/paper-vital"):             # the same reading on several papers: once
+            if key["value"].startswith("vital/"):                  # the same reading on several papers: once
                 if key["value"] in vitals_seen:
                     continue
                 vitals_seen.add(key["value"])

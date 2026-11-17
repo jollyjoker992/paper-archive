@@ -54,7 +54,7 @@ python3 paper_archive.py load                 # needs PAPER_FHIR_* in .env
 ```
 
 Python 3.11+, standard library only. Photos other than JPEG (HEIC, PNG) are converted with macOS `sips` or,
-elsewhere, Pillow.
+elsewhere, Pillow (plus pillow-heif for HEIC). A phone photo's orientation is kept, so pages show upright.
 
 ## Documentation
 
@@ -64,14 +64,15 @@ elsewhere, Pillow.
 | [docs/extraction-format.md](docs/extraction-format.md) | The transcription format |
 | [docs/validation-rules.md](docs/validation-rules.md) | Every validation rule and what it catches |
 | [docs/fhir-mapping.md](docs/fhir-mapping.md) | The FHIR mapping |
-| [.agents/skills/](.agents/skills/) | `paper-archive` (taking a document in), `paper-catalog` (adding codes) |
+| [.agents/skills/](.agents/skills/) | `paper-archive` (taking a document in), `paper-catalog` (adding codes), `paper-health-analysis` (answering questions from Medplum) |
 
 ## Status
 
-Works end to end up to validated FHIR NDJSON, with a tested loader. Not done yet: a Medplum project and
-client setup script (`medplum/setup.py` in the other archives), integration into agentic-assistant
-(a loader client, a scoped reader, `paper_user_id` in `people.toml`), a read-only query tool for agents,
-and prescriptions.
+Works end to end: intake, validation, review, approval, FHIR, loading, and read-only questions
+(`tools/medplum_agent.py`). It runs standalone or inside
+[agentic-assistant](https://github.com/jollyjoker992/agentic-assistant), where papers can also be sent to
+the assistant on Telegram. Not done yet: a standalone Medplum setup script (`medplum/setup.py` in the
+other archives) and prescriptions.
 
 ## Privacy
 

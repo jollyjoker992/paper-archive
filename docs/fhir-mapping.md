@@ -1,4 +1,4 @@
-# FHIR mapping (version 0.1.0)
+# FHIR mapping (version 0.2.0)
 
 How an approved transcription becomes FHIR R4 resources. This is what `paper_archive.py map` implements
 (`paperarchive/fhir.py`). FHIR is a view: it is rebuilt from `extraction.json` and the catalog, and the scan
@@ -55,7 +55,7 @@ resolves them in the transaction.
 | `DocumentReference` | document | `paper-document` = document id (second identifier: the printed report number, system `…/printed-number/<organization>`) | `type` by document type, `date` = intake time, `content.attachment` = the PDF (`size`, SHA-1 `hash`, `url` set by the loader), `context.period.start` = clinical date, `context.related` → the report or Composition. |
 | `DiagnosticReport` | lab report, ECG, ultrasound, X-ray, endoscopy | `paper-report` = document id | `category`, `code`, `effectiveDateTime`, `issued` (when a report time is printed), `performer` = Organization, `resultsInterpreter.display` = signing doctor, `result` = its Observations, `conclusion`. |
 | `Observation` | result row, measurement, narrative block | `paper-observation` = `<document id>/<slug>` | See below. |
-| `Observation` (vital sign) | printed vital sign | `paper-vital` = `<person>/<date>/<kind>/<value>` | See "Vital signs". |
+| `Observation` (vital sign) | printed vital sign | `paper-observation` = `vital/<person>/<date>/<kind>/<value>` | See "Vital signs". |
 | `Encounter`, `Composition`, `Condition` | visit note | `paper-encounter`, `paper-composition`, `paper-condition` | See "Visit notes". |
 | `Binary` | document | (server id) | The PDF; uploaded by the loader. |
 
@@ -123,7 +123,7 @@ blood pressure 85354-9 with components 8480-6 / 8462-4 (`mm[Hg]`), heart rate 88
 8310-5 (`Cel`), height 8302-2 (`cm`), weight 29463-7 (`kg`), BMI 39156-5 (`kg/m2`).
 
 Hospitals print the same reading on every report of a visit. The identifier is
-`<person>/<date>/<kind>/<value>`, and `map` emits each one only with the first document that carries it, so
+`vital/<person>/<date>/<kind>/<value>`, and `map` emits each one only with the first document that carries it, so
 three reports of one afternoon give one blood pressure, not three.
 
 ### Visit notes

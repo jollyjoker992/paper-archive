@@ -208,6 +208,26 @@ def intake(root: Path, person_id: str, files: list[Path]) -> Document:
     return Document(folder)
 
 
+def rebuild_pdf(doc: Document) -> bool:
+    """Build document.pdf again from the original scans (after a fix in the PDF builder). Returns True when
+    it changed. Not for a document made from a PDF: that PDF is the original."""
+    originals = [doc.path / o["file"] for o in doc.meta["originals"]]
+    if [p.suffix.lower() for p in originals] == [".pdf"]:
+        return False
+    work = doc.path / ".document.pdf.tmp"
+    pages = pdf.images_to_pdf(originals, work)
+    raw = work.read_bytes()
+    if hashlib.sha256(raw).hexdigest() == doc.meta["pdf"]["sha256"]:
+        work.unlink()
+        return False
+    os.replace(work, doc.path / "document.pdf")
+    doc.meta["pdf"] = {"file": "document.pdf", "sha256": hashlib.sha256(raw).hexdigest(),
+                       "sha1_base64": base64.b64encode(hashlib.sha1(raw).digest()).decode(),
+                       "bytes": len(raw), "pages": pages}
+    write_json(doc.path / "meta.json", doc.meta)
+    return True
+
+
 def remove(doc: Document) -> None:
     """Delete a document: scans, PDF, transcription, approval. The next map and load take it off the server."""
     shutil.rmtree(doc.path)

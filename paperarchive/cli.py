@@ -87,10 +87,60 @@ def _rows_table(rows: list[dict]) -> list[str]:
     return out
 
 
+def _compact_rows(rows: list[dict]) -> list[str]:
+    out = []
+    for row in rows:
+        value = " ".join(filter(None, [row["value_text"], row["unit_text"]]))
+        extra = [f"({row['reference_text']})" if row["reference_text"] else "", row["flag"] or ""]
+        if row["alt_value"]:
+            extra.append(f"[also {row['alt_value']}]")
+        coded = row["code"]["loinc"] if row["code"] else "name only"
+        out.append(f"#{row['index']} {row['name']}: {value} {' '.join(e for e in extra if e)} -> {coded}".replace("  ", " "))
+    return out
+
+
+def review_compact(doc: store.Document, issues: list[dict], parsed: dict) -> str:
+    """The review sheet for a chat: one line per value, no tables."""
+    x = parsed["doc"]
+    head = [x.get("document", {}).get("type"), (x.get("facility") or {}).get("name"),
+            " ".join(f"{k} {v}" for k, v in (x.get("dates") or {}).items())]
+    out = [f"Review {doc.id} ({doc.state()}) - {doc.meta['person']}", " | ".join(h for h in head if h)]
+    patient = x.get("patient") or {}
+    if patient:
+        out.append("Patient: " + ", ".join(f"{k} {v}" for k, v in patient.items()))
+    staff = x.get("staff") or {}
+    if staff:
+        out.append("Staff: " + ", ".join(f"{k} {v}" for k, v in staff.items()))
+    if x.get("vitals"):
+        out.append("Vitals: " + ", ".join(f"{k} {v}" + ("" if k in parsed["vitals"] else " (not loaded)")
+                                          for k, v in x["vitals"].items()))
+    out.append("")
+    if parsed["type"] == "lab-report":
+        out += _compact_rows(parsed["results"])
+    elif parsed["type"] == "ecg" and "ecg" in x:
+        spec = catalog.codes()["ecg"]
+        out += [f"{k}: {v['text']} {spec[k]['unit']}" for k, v in parsed["ecg"].items()]
+        out += [f"{k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion") if k in x["ecg"]]
+    elif parsed["type"] == "visit" and "visit" in x:
+        out += [f"{k}: {v}" for k, v in x["visit"].items()]
+    elif "study" in x:
+        study = parsed["study"]
+        out.append(f"Study: {study['loinc'] + ' ' + study['display'] if study else 'generic, printed name only'}")
+        out += [f"{k}: {v}" for k, v in x["study"].items() if k not in ("key", "measurements")]
+        out += _compact_rows(parsed["measurements"])
+    counts = extraction.summary(issues)
+    out += ["", f"{counts['error']} error(s), {counts['warning']} warning(s)"]
+    out += [f"! {i['code']} {i['path']}: {i['message']}" for i in issues if i["level"] != "info"]
+    return "\n".join(out)
+
+
 def cmd_review(args, root):
     """The sheet the owner checks against the paper before approving."""
     doc = store.document(root, args.doc)
     issues, parsed = _checked(root, doc)
+    if args.compact:
+        print(review_compact(doc, issues, parsed))
+        return EXIT_ISSUES if extraction.summary(issues)["error"] else EXIT_OK
     x = parsed["doc"]
     out = [f"# Review {doc.id} ({doc.state()})", "",
            f"Scan: {doc.path / 'document.pdf'}", f"Person: {doc.meta['person']}", ""]
@@ -128,6 +178,14 @@ def cmd_approve(args, root):
     issues, _ = _checked(root, doc)
     review = store.approve(doc, args.by, issues, args.accept_warnings)
     print(f"{doc.id}: approved by {review['approved_by']} ({len(review['accepted_warnings'])} warning(s) accepted)")
+    return EXIT_OK
+
+
+def cmd_rebuild_pdf(args, root):
+    docs = store.documents(root) if args.doc == "all" else [store.document(root, args.doc)]
+    for doc in docs:
+        changed = store.rebuild_pdf(doc)
+        print(f"{doc.id}: {'rebuilt' if changed else 'unchanged'}")
     return EXIT_OK
 
 
@@ -222,12 +280,16 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_validate)
     p = sub.add_parser("review", help="print the sheet the owner checks against the paper")
     p.add_argument("doc")
+    p.add_argument("--compact", action="store_true", help="one line per value, for a chat")
     p.set_defaults(fn=cmd_review)
     p = sub.add_parser("approve", help="record the owner's approval (only on the owner's word)")
     p.add_argument("doc")
     p.add_argument("--by", required=True, help="the person who compared the sheet with the paper")
     p.add_argument("--accept-warnings", action="store_true")
     p.set_defaults(fn=cmd_approve)
+    p = sub.add_parser("rebuild-pdf", help="build document.pdf again from the original scans")
+    p.add_argument("doc", help="a document id, or all")
+    p.set_defaults(fn=cmd_rebuild_pdf)
     p = sub.add_parser("remove", help="delete a document, e.g. a duplicate (only on the owner's word)")
     p.add_argument("doc", help="the full document id")
     p.set_defaults(fn=cmd_remove)
