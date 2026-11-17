@@ -38,6 +38,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
+      - name: rclone (the backup tests upload to a local folder)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone
       - name: Unit tests (no network, no credentials, made-up documents)
         run: python -m unittest discover -s tests -v
 

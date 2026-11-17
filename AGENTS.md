@@ -41,11 +41,17 @@ approved documents. Reading transcriptions in `data/` to answer a question needs
   or sex that does not match `people.toml` is an error on purpose; do not add an alias to make it pass
   unless the owner confirms the spelling is theirs.
 - **Personal data.** `data/` (default data directory) holds scans and transcriptions of real people. Never
-  commit it, never send it to an external service, never paste a real document into tests, fixtures, docs
+  commit it, never send it to an external service (`backup` to the owner's own storage is the one way out), never paste a real document into tests, fixtures, docs
   or examples: those use made-up people only (`tests/fixtures/`). `tools/loinc_check.py` sends LOINC numbers
   only.
 - Never print or commit `.env` or any `PAPER_FHIR_*` secret. `load` writes to the family's Medplum: run it
   only when asked.
+- **Backup.** `backup` uploads the archive to the storage the owner configured ([`docs/backup.md`](docs/backup.md)):
+  run it when asked. Never print `PAPER_BACKUP_KEY`, a storage credential or `<data dir>/backup/rclone.conf`.
+  Only the owner runs `backup new-key`, chooses encrypted or plain, and changes a `PAPER_BACKUP_*`,
+  `PAPER_AWS_*`, `PAPER_R2_*` or `PAPER_GDRIVE_*` setting; never set `PAPER_BACKUP_PLAIN` to get past an
+  error. Never delete from a backup target. `restore` writes only into a new folder: never restore over the
+  data directory.
 - **The same paper only once.** Intake refuses files already in the archive. A paper photographed or
   scanned again is caught by validation (`E-DUPLICATE-DOCUMENT`, `W-POSSIBLE-DUPLICATE`). Tell the owner
   which documents look the same; `remove` deletes a document with its scans, so run it only on the owner's
@@ -69,6 +75,9 @@ python3 paper_archive.py remove <full doc id>              # delete a document, 
 python3 paper_archive.py map [<doc>] [--force]           # approved documents -> FHIR NDJSON
 python3 paper_archive.py load [--force]                  # -> Medplum (PAPER_FHIR_* in .env)
 python3 paper_archive.py status [--json]                 # intake | extracted | approved | mapped | loaded
+python3 paper_archive.py backup [--target <name>]        # -> every configured target: aws r2 gdrive rclone (needs rclone)
+python3 paper_archive.py backup status [--json]          # per target: documents backed up, last error (no network)
+python3 paper_archive.py restore --from <name> --out <new folder>   # a target's backup as a data directory
 python3 -m unittest discover -s tests                    # offline tests, made-up documents
 python3 tools/loinc_check.py                             # every catalog code against the NLM LOINC API
 python3 tools/cvx_check.py                               # every vaccine code against the CDC CVX list
@@ -76,8 +85,8 @@ python3 tools/fhir_fixtures.py <dir>                     # the fixtures as FHIR 
 cd tools/fhir-validate && npm ci && node validate.mjs <ndjson|dir>   # Medplum's validator
 ```
 
-Exit codes: `0` done, `1` validation errors or failed documents, `2` something the caller must fix
-(unknown person, missing file, missing configuration). A document id may be shortened to a unique prefix.
+Exit codes: `0` done, `1` validation errors or failed documents (for `backup`: something is retried on the
+next run), `2` something the caller must fix (unknown person, missing file, missing configuration). A document id may be shortened to a unique prefix.
 
 ## Where things are
 
@@ -90,9 +99,10 @@ Exit codes: `0` done, `1` validation errors or failed documents, `2` something t
 | Archive layout, intake, approval, removal | `paperarchive/store.py`, PDF builder `paperarchive/pdf.py` |
 | The same paper twice | `paperarchive/duplicates.py` (intake refuses known files in `store.py`) |
 | Loader | `paperarchive/load.py` (transaction of conditional updates per document) |
+| Cloud backup and restore | `docs/backup.md`, `paperarchive/backup.py` (rclone; state in `<data dir>/backup/`) |
 | Skills | `.agents/skills/paper-archive/` (intake), `paper-catalog/` (codes), `paper-health-analysis/` (questions) (`.claude/skills` links here) |
 | Read-only queries | `tools/medplum_agent.py` |
-| Tests | `tests/test_paper_archive.py`, made-up documents in `tests/fixtures/` |
+| Tests | `tests/test_paper_archive.py`, `tests/test_backup.py` (real rclone, local folder), made-up documents in `tests/fixtures/` |
 
 ## Changing the code
 
@@ -105,4 +115,7 @@ Exit codes: `0` done, `1` validation errors or failed documents, `2` something t
   fixtures together. Once real documents exist in an archive, a breaking change needs a new format number
   and a migration: approvals are bound to the exact bytes of `extraction.json`.
 - Identifier systems (`<base>/identifier/…`) never change after the first load.
-- Standard library only (Python 3.11+). `sips` (macOS) or Pillow is needed only to take in non-JPEG photos.
+- The backup's layout on a target (`FORMAT` in `paperarchive/backup.py`: file names, archive contents,
+  `manifest.json`) is read by `restore` years later: a change needs a new format number and a restore
+  that still reads the old one. Never add a call that deletes or overwrites on a target.
+- Standard library only (Python 3.11+); `backup` runs the `rclone` program. `sips` (macOS) or Pillow is needed only to take in non-JPEG photos.

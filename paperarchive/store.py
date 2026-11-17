@@ -11,6 +11,7 @@
     fhir.ndjson                    the mapped resources
   fhir/shared.ndjson               Patients and Organizations
   fhir/manifest.json, fhir/load-manifest.json
+  backup/                          state of the cloud backup (backup.py); not a document, never uploaded
 """
 from __future__ import annotations
 

@@ -7,7 +7,8 @@ import logging
 import sys
 from pathlib import Path
 
-from . import DEFAULT_BASE, DOCUMENT_TYPES, EXTRACTION_FORMAT, MAPPING_VERSION, catalog, duplicates, extraction, fhir, load, pdf, store
+from . import (DEFAULT_BASE, DOCUMENT_TYPES, EXTRACTION_FORMAT, MAPPING_VERSION, backup, catalog, duplicates, extraction,
+               fhir, load, pdf, store)
 
 EXIT_OK, EXIT_ISSUES, EXIT_CONFIG = 0, 1, 2
 
@@ -280,6 +281,54 @@ def cmd_status(args, root):
     return EXIT_OK
 
 
+def _one_target(env: dict, name: str | None) -> dict:
+    targets = backup.targets_from_env(env, name)
+    if not targets:
+        raise store.ArchiveError(f"backup target {name} is not configured (docs/backup.md)" if name else
+                                 "no backup target is configured: set the PAPER_AWS_*, PAPER_R2_*, PAPER_GDRIVE_* "
+                                 "or PAPER_BACKUP_RCLONE_REMOTE settings (docs/backup.md)")
+    return targets
+
+
+def cmd_backup(args, root):
+    env = backup.settings()
+    if args.action == "new-key":
+        print(f"PAPER_BACKUP_KEY={backup.new_key()}")
+        print("Put this line in .env and keep a copy outside this computer (password manager, paper): "
+              "without the key the encrypted backup cannot be read.", file=sys.stderr)
+        return EXIT_OK
+    if args.action == "status":
+        result = backup.status(root, env)
+        if args.json:
+            print(json.dumps(result, indent=1))
+            return EXIT_OK
+        if result["error"]:
+            print(f"backup: {result['error']}")
+        elif not result["targets"]:
+            print("backup: no target configured")
+        for name, t in result["targets"].items():
+            line = f"backup {name} ({result['mode']}): {t['backed_up']}/{t['documents']} document(s), "
+            line += "never run" if t.get("never_run") else \
+                f"{'up to date' if t['up_to_date'] else 'not up to date'}, checked {t['checked_at']}"
+            print(line + (f"; ERROR {t['error']}" if t.get("error") else ""))
+        return EXIT_OK
+    targets, mode = _one_target(env, args.target), backup.mode_from_env(env)
+    report = backup.backup(root, targets, mode, backup.Rclone(root, env))
+    print(json.dumps(report, indent=1))
+    return EXIT_ISSUES if backup.failed(report) else EXIT_OK
+
+
+def cmd_restore(args, root):
+    env = backup.settings()
+    target, mode = _one_target(env, args.source)[args.source], backup.mode_from_env(env)
+    out = Path(args.out).expanduser()
+    report = backup.restore(target, mode, out, backup.Rclone(root, env))
+    print(json.dumps(report, indent=1))
+    print(f"restored {len(report['documents'])} document(s) into {out}: medical records, not encrypted. "
+          f"Use it with PAPER_ARCHIVE_DIR={out} and run map.", file=sys.stderr)
+    return EXIT_ISSUES if report["errors"] else EXIT_OK
+
+
 def cmd_catalog(args, root):
     hits = catalog.find(args.text, "vaccine" if args.vaccine else "study" if args.study else "analyte")
     for entry in hits[:12]:
@@ -336,6 +385,15 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("load", help="load the mapped documents into Medplum")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_load)
+    p = sub.add_parser("backup", help="copy the data directory to the configured cloud targets (docs/backup.md)")
+    p.add_argument("action", nargs="?", choices=["run", "status", "new-key"], default="run")
+    p.add_argument("--target", choices=backup.TARGET_NAMES, help="only this target")
+    p.add_argument("--json", action="store_true", help="status as JSON")
+    p.set_defaults(fn=cmd_backup)
+    p = sub.add_parser("restore", help="write a target's backup into a new data directory")
+    p.add_argument("--from", dest="source", required=True, choices=backup.TARGET_NAMES)
+    p.add_argument("--out", required=True, help="a folder that does not exist yet")
+    p.set_defaults(fn=cmd_restore)
     p = sub.add_parser("status", help="every document and its state")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_status)
@@ -349,6 +407,9 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
     try:
         return args.fn(args, store.data_dir())
+    except backup.BackupError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_ISSUES
     except (store.ArchiveError, load.LoadError, pdf.PdfError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_CONFIG

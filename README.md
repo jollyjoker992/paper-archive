@@ -52,9 +52,10 @@ python3 paper_archive.py review <id>          # compare with the paper
 python3 paper_archive.py approve <id> --by "Your Name"
 python3 paper_archive.py map
 python3 paper_archive.py load                 # needs PAPER_FHIR_* in .env
+python3 paper_archive.py backup               # scans, transcriptions and approvals to S3, R2 or Google Drive
 ```
 
-Python 3.11+, standard library only. Photos other than JPEG (HEIC, PNG) are converted with macOS `sips` or,
+Python 3.11+, standard library only ([rclone](https://rclone.org) for `backup`). Photos other than JPEG (HEIC, PNG) are converted with macOS `sips` or,
 elsewhere, Pillow (plus pillow-heif for HEIC). A phone photo's orientation is kept, so pages show upright.
 
 ## Documentation
@@ -65,11 +66,12 @@ elsewhere, Pillow (plus pillow-heif for HEIC). A phone photo's orientation is ke
 | [docs/extraction-format.md](docs/extraction-format.md) | The transcription format |
 | [docs/validation-rules.md](docs/validation-rules.md) | Every validation rule and what it catches |
 | [docs/fhir-mapping.md](docs/fhir-mapping.md) | The FHIR mapping |
+| [docs/backup.md](docs/backup.md) | Cloud backup (AWS S3, Cloudflare R2, Google Drive; encrypted or plain) and restore |
 | [.agents/skills/](.agents/skills/) | `paper-archive` (taking a document in), `paper-catalog` (adding codes), `paper-health-analysis` (answering questions from Medplum) |
 
 ## Status
 
-Works end to end: intake, validation, review, approval, FHIR, loading, and read-only questions
+Works end to end: intake, validation, review, approval, FHIR, loading, cloud backup, and read-only questions
 (`tools/medplum_agent.py`). It runs standalone or inside
 [agentic-assistant](https://github.com/jollyjoker992/agentic-assistant), where papers can also be sent to
 the assistant on Telegram. Not done yet: a standalone Medplum setup script (`medplum/setup.py` in the
@@ -78,7 +80,8 @@ other archives) and prescriptions.
 ## Privacy
 
 `data/` holds scans and transcriptions of real people and is never committed. Tests and examples use made-up
-documents only. The only network calls are `load` (to your Medplum), `tools/loinc_check.py` (LOINC
+documents only. The only network calls are `load` (to your Medplum), `backup` and `restore` (to the storage you
+configured; encrypted before upload when `PAPER_BACKUP_KEY` is set), `tools/loinc_check.py` (LOINC
 numbers to the NLM search API) and `tools/cvx_check.py` (downloads the CDC's CVX list; sends nothing). The agent that transcribes necessarily sees the document: use one you trust
 with health records.
 
