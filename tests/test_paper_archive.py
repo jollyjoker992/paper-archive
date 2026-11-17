@@ -595,7 +595,7 @@ class FakeMedplum(BaseHTTPRequestHandler):
 
 
 class Loading(unittest.TestCase):
-    add, map = Archive.add, Archive.map
+    add, map, resources = Archive.add, Archive.map, Archive.resources
 
     def setUp(self):
         Archive.setUp(self)
@@ -608,6 +608,34 @@ class Loading(unittest.TestCase):
     def load(self, **kw):
         client = load.FhirClient(f"http://127.0.0.1:{self.server.server_port}", "id", "secret")
         return load.load_all(self.root, client, "project-1", sleep=lambda s: None, **kw)
+
+    def test_references_inside_a_document_use_its_full_urls(self):
+        # Medplum resolves a conditional reference only against resources that already exist: references
+        # between the resources of one document must point at entries of the same transaction.
+        doc = self.add("visit")
+        self.map()
+        resources = self.resources(doc)
+        bundle = load.transaction(resources)
+        full_urls = {e["fullUrl"] for e in bundle["entry"]}
+        self.assertEqual(len(full_urls), len(resources))
+        self.assertTrue(all(u.startswith("urn:uuid:") for u in full_urls))
+        self.assertEqual(load.transaction(resources), bundle)                  # deterministic
+
+        def refs(node):
+            if isinstance(node, dict):
+                if "reference" in node:
+                    yield node["reference"]
+                for v in node.values():
+                    yield from refs(v)
+            elif isinstance(node, list):
+                for v in node:
+                    yield from refs(v)
+
+        found = [ref for e in bundle["entry"] for ref in refs(e["resource"])]
+        self.assertTrue(any(r.startswith("urn:uuid:") for r in found))
+        for ref in found:
+            self.assertTrue(ref in full_urls or ref.startswith(("Patient?", "Organization?")), ref)
+        self.assertEqual(resources[1]["subject"]["reference"].split("?")[0], "Patient")    # input left unchanged
 
     def test_load_is_idempotent_and_follows_approval(self):
         lab, ecg = self.add("lab-report"), self.add("ecg")

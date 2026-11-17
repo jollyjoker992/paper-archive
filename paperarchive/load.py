@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 
 from . import MAPPING_VERSION, store
@@ -120,9 +121,32 @@ def conditional_url(key: str) -> str:
     return f"{rtype}?identifier={urllib.parse.quote(system, safe=':/')}|{urllib.parse.quote(value, safe=':/')}"
 
 
+def local_reference(key: str) -> str:
+    """The reference the mapper writes for a resource: `Type?identifier=<system>|<value>`."""
+    rtype, system, value = key.split("|", 2)
+    return f"{rtype}?identifier={system}|{value}"
+
+
 def transaction(resources: list[dict]) -> dict:
+    """One transaction of conditional updates. Medplum resolves a conditional reference only against
+    resources that already exist, not against other entries of the same transaction, and a document's
+    resources reference each other (results -> document, report -> results, document -> report). So every
+    entry gets a fixed `urn:uuid:` fullUrl and references inside the batch point to it; the server replaces
+    them with the real ids. References outside the batch (Patient, Organization) stay conditional."""
+    keys = [ident_key(r) for r in resources]
+    urns = {local_reference(k): f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, k)}" for k in keys}
+
+    def rewrite(node):
+        if isinstance(node, dict):
+            return {k: (urns.get(v, v) if k == "reference" and isinstance(v, str) else rewrite(v))
+                    for k, v in node.items()}
+        if isinstance(node, list):
+            return [rewrite(v) for v in node]
+        return node
+
     return {"resourceType": "Bundle", "type": "transaction", "entry": [
-        {"resource": r, "request": {"method": "PUT", "url": conditional_url(ident_key(r))}} for r in resources]}
+        {"fullUrl": urns[local_reference(k)], "resource": rewrite(r),
+         "request": {"method": "PUT", "url": conditional_url(k)}} for k, r in zip(keys, resources)]}
 
 
 class Loader:

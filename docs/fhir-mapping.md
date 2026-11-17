@@ -21,8 +21,10 @@ taken in: the same paper is on the server once. A removed document leaves the se
 
 A document is mapped again when its transcription, the mapping version, the catalog version or the base
 changes, or with `--force`. Output is deterministic: mapping twice gives the same bytes, so `load` has
-nothing to do. Resources have no `id`; references use `Type?identifier=<system>|<value>` and the server
-resolves them in the transaction.
+nothing to do. Resources have no `id`; references use `Type?identifier=<system>|<value>`. Medplum resolves
+such a reference only against resources that already exist, so the loader gives every entry of a document's
+transaction a fixed `urn:uuid:` full URL and points references inside the document at it; references to the
+Patient and Organization (loaded first, from `shared.ndjson`) stay conditional.
 
 ## Rules
 
