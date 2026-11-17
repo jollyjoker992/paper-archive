@@ -1,0 +1,37 @@
+paper-archive
+Copyright 2026 Hiếu Phạm
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party content and attribution
+-----------------------------------
+
+LOINC
+  This material contains content from LOINC (http://loinc.org): the LOINC codes
+  and names used in paperarchive/catalog/, tests/ and the documentation. LOINC
+  is copyright Regenstrief Institute, Inc. and the Logical Observation
+  Identifiers Names and Codes (LOINC) Committee and is available at no cost
+  under the license at http://loinc.org/license. LOINC is a registered United
+  States trademark of Regenstrief Institute, Inc.
+
+UCUM
+  The unit codes in paperarchive/catalog/units.json are from the Unified Code
+  for Units of Measure (https://ucum.org), copyright Regenstrief Institute,
+  Inc. and the UCUM Organization.
+
+Medplum
+  tools/fhir-validate installs @medplum/core and @medplum/definitions
+  (Apache License 2.0, Copyright Orangebot, Inc. and Medplum contributors) from
+  npm. They are not part of this repository.
+
+NLM
+  tools/loinc_check.py queries the Clinical Table Search Service of the U.S.
+  National Library of Medicine (https://clinicaltables.nlm.nih.gov). This
+  project is not affiliated with or endorsed by the NLM.
+
+HL7 FHIR
+  FHIR is the registered trademark of Health Level Seven International.
+
+Not a medical device
+  This software stores what a paper document says. It does not diagnose,
+  interpret results or give medical advice.

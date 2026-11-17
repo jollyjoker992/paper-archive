@@ -1,0 +1,75 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "ultrasound",
+  "language": "vi",
+  "title": "PHIẾU SIÊU ÂM TIM (ECHOCARDIOGRAPHY)",
+  "pages": 1
+ },
+ "patient": {
+  "name": "TRẦN THỊ VÍ DỤ",
+  "birth_year": 1985,
+  "sex": "female",
+  "age": 41
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ"
+ },
+ "staff": {
+  "signed_by": "BS. Đỗ Thị Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-02"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "vitals": {
+  "blood_pressure": "118/76",
+  "pulse": "68",
+  "weight": "54.0",
+  "height": "160",
+  "bmi": "21.1"
+ },
+ "study": {
+  "key": "us-heart",
+  "procedure": "SIÊU ÂM TIM (ECHOCARDIOGRAPHY)",
+  "findings": "+ Các van tim: không hẹp, không hở\n- IVSd = 8 mm; LVEDD = 44 mm\n+ EF = 66% (bt: >55%)\n+ Midwall FS = 19% (bt: 14-22%)\n+ EDT = 190 (bt: <220@41 tuổi)",
+  "measurements": [
+   {
+    "name": "IVSd",
+    "analyte": "echo-ivsd",
+    "value": "8",
+    "unit": "mm"
+   },
+   {
+    "name": "LVEDD",
+    "analyte": "echo-lvidd",
+    "value": "44",
+    "unit": "mm"
+   },
+   {
+    "name": "EF",
+    "analyte": "echo-lvef",
+    "value": "66",
+    "unit": "%",
+    "reference": "(bt: >55%)"
+   },
+   {
+    "name": "Midwall FS",
+    "analyte": "echo-midwall-fs",
+    "value": "19",
+    "unit": "%",
+    "reference": "(bt: 14-22%)"
+   },
+   {
+    "name": "EDT",
+    "analyte": "echo-edt",
+    "value": "190",
+    "reference": "(bt: <220@41 tuổi)"
+   }
+  ],
+  "impression": "Chức năng tâm thu thất trái trong giới hạn bình thường."
+ }
+}

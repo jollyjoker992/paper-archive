@@ -1,0 +1,41 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "endoscopy",
+  "language": "vi",
+  "title": "KẾT QUẢ NỘI SOI ĐẠI TRÀNG (Colonoscopy)",
+  "pages": 1
+ },
+ "patient": {
+  "name": "TRẦN THỊ VÍ DỤ",
+  "birth_year": 1985,
+  "sex": "female",
+  "age": 41
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ"
+ },
+ "staff": {
+  "performed_by": "BS. Vũ Văn Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-03"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "vitals": {
+  "blood_pressure": "122/78",
+  "pulse": "72",
+  "weight": "54",
+  "height": "1600",
+  "bmi": "0.3"
+ },
+ "study": {
+  "key": "colonoscopy",
+  "procedure": "NỘI SOI ĐẠI TRÀNG (Colonoscopy)",
+  "findings": "* Ống soi đi đến manh tràng.\n- Đại tràng: bình thường\n- Trực tràng: bình thường",
+  "impression": "Đại trực tràng bình thường"
+ }
+}

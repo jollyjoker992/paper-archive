@@ -1,0 +1,47 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "ultrasound",
+  "language": "vi",
+  "title": "KẾT QUẢ SIÊU ÂM",
+  "pages": 1
+ },
+ "patient": {
+  "name": "TRẦN THỊ VÍ DỤ",
+  "birth_year": 1985,
+  "sex": "female",
+  "age": 41
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ",
+  "department": "Chẩn đoán hình ảnh"
+ },
+ "staff": {
+  "ordered_by": "BS. Nguyễn Văn Mẫu",
+  "performed_by": "BS. Đỗ Thị Mẫu",
+  "signed_by": "BS. Đỗ Thị Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-02T08:30",
+  "reported": "2026-10-02T08:50"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "study": {
+  "procedure": "SIÊU ÂM Ổ BỤNG TỔNG QUÁT",
+  "indication": "Khám sức khỏe định kỳ",
+  "findings": "Gan: kích thước bình thường, nhu mô tăng âm nhẹ, bờ đều. Đường mật trong và ngoài gan không giãn.\nTúi mật: thành mỏng, không sỏi.\nTụy, lách: bình thường.\nThận phải: kích thước bình thường, không sỏi, không ứ nước. Thận trái: nang vỏ thận 12 x 10 mm, không sỏi.\nBàng quang: thành nhẵn. Không có dịch tự do ổ bụng.",
+  "impression": "Gan nhiễm mỡ độ I. Nang thận trái.",
+  "recommendation": "Siêu âm kiểm tra lại sau 6 tháng.",
+  "key": "us-abdomen"
+ },
+ "vitals": {
+  "blood_pressure": "118/76",
+  "pulse": "68",
+  "weight": "54.0",
+  "height": "160",
+  "bmi": "21.1"
+ }
+}

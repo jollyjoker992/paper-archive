@@ -1,0 +1,18 @@
+# Who the archive holds paper documents for. Copy to <data dir>/people.toml (default ./data/people.toml).
+# It is personal data and never committed.
+
+[[person]]
+id = "me"                         # short and stable: it is the FHIR Patient identifier (paper-user)
+name = "Nguyễn Văn A"             # the name on the FHIR Patient
+# Other spellings found on paper (case and diacritics do not matter). A printed name that is neither
+# `name` nor an alias stops the document: that is the guard against filing it under the wrong person.
+aliases = ["Nguyen Van A."]
+birth_date = "1990-05-12"         # checked against the birth date or year printed on the document
+sex = "male"                      # male | female, checked against the document
+timezone = "Asia/Ho_Chi_Minh"     # printed times are local: this gives them their offset
+
+# [[person]]
+# id = "mom"
+# name = "Trần Thị B"
+# birth_date = "1962-08-30"
+# sex = "female"

@@ -1,0 +1,46 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "visit",
+  "language": "vi",
+  "title": "KẾT QUẢ KHÁM BỆNH",
+  "pages": 1
+ },
+ "patient": {
+  "name": "Trần Thị Ví Dụ",
+  "birth_date": "1985-03-14",
+  "sex": "female"
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ"
+ },
+ "staff": {
+  "signed_by": "BS. Nguyễn Văn Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-05"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "vitals": {
+  "pulse": "70",
+  "blood_pressure": "116/74",
+  "temperature": "36.8",
+  "height": "160",
+  "weight": "54",
+  "bmi": "21.09"
+ },
+ "visit": {
+  "reason": "Ho khan 5 ngày",
+  "medications": "không",
+  "family_history": "Bình thường.",
+  "past_history": "Viêm mũi dị ứng.",
+  "allergies": "Chưa.",
+  "examination": "Họng đỏ nhẹ. Phổi không rale.\nTim đều <100 lần/phút & không tiếng thổi.",
+  "tests": "- Không thực hiện",
+  "diagnosis": "Viêm họng cấp",
+  "advice": "1. Thuốc: theo đơn.\n2. Tái khám khi có triệu chứng bất thường."
+ }
+}

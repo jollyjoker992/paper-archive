@@ -1,0 +1,141 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "lab-report",
+  "language": "vi",
+  "title": "KẾT QUẢ XÉT NGHIỆM",
+  "pages": 1
+ },
+ "patient": {
+  "name": "TRẦN THỊ VÍ DỤ",
+  "birth_year": 1985,
+  "sex": "female",
+  "age": 41
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ"
+ },
+ "staff": {
+  "signed_by": "BS. Lê Thị Mẫu"
+ },
+ "dates": {
+  "collected": "2026-10-02T07:15",
+  "reported": "2026-10-02T09:30"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "results": [
+  {
+   "section": "Tổng phân tích tế bào máu",
+   "name": "Hồng cầu",
+   "analyte": "rbc",
+   "value": "4.52",
+   "reference": "( 3,8 - 5,5 x 10^12 /L )",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "Tổng phân tích tế bào máu",
+   "name": "MCV",
+   "analyte": "mcv",
+   "value": "78.4",
+   "reference": "( 85 - 95 fL )",
+   "flag": "marked",
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "Tổng phân tích tế bào máu",
+   "name": "RDW_SD",
+   "analyte": "rdw-sd",
+   "value": "41.0",
+   "reference": "( 35 - 46fL)",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "SGPT (ALT)",
+   "name": "Alanine aminotransferase",
+   "analyte": "alt",
+   "value": "35",
+   "reference": "Nam<41 U/L Nữ <31U/L",
+   "flag": "marked",
+   "alt_value": "0.58",
+   "alt_reference": "( Nữ<0,52 mckat/L Nam<0,68 mckat/L )"
+  },
+  {
+   "section": "Axit Uric",
+   "name": "Uric acid máu",
+   "analyte": "uric-acid",
+   "value": "310",
+   "reference": "(Nữ: 143 - 399 µmol/L, Nam: 202 - 416 µmol/L)",
+   "flag": null,
+   "alt_value": "5.2",
+   "alt_reference": "(Nữ < 5,7 ; Nam < 7 mg/dl)"
+  },
+  {
+   "section": "Điện giải đồ",
+   "name": "Calcium ion hóa",
+   "analyte": "calcium-ionized",
+   "value": "1.21",
+   "reference": "(1.10 - 1.40 mmol/L)",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "HBsAg (Máy điện hóa phát quang)",
+   "name": "Hepatitis B Surface Antigen",
+   "analyte": "hbsag",
+   "value": "0.42",
+   "reference": "( Âm tính <1 COI )",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "Nước tiểu 10 thông số",
+   "name": "Tỷ trọng",
+   "analyte": "urine-specific-gravity",
+   "value": "1.015",
+   "reference": "( 1,005 - 1,030 )",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "Nước tiểu 10 thông số",
+   "name": "Glucose",
+   "analyte": "urine-glucose",
+   "value": "Âm tính",
+   "reference": "( Âm tính )",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "Nước tiểu 10 thông số",
+   "name": "Hồng cầu",
+   "analyte": "urine-blood",
+   "value": "Âm tính",
+   "reference": "( Âm tính )",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  },
+  {
+   "section": "Nước tiểu 10 thông số",
+   "name": "Urobilinogen",
+   "analyte": "urine-urobilinogen",
+   "value": "Bình thường",
+   "reference": "( Bình thường )",
+   "flag": null,
+   "alt_value": null,
+   "alt_reference": null
+  }
+ ]
+}

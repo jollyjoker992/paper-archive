@@ -1,0 +1,35 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {
+  "type": "xray",
+  "language": "vi",
+  "title": "KẾT QUẢ CHỤP X-QUANG",
+  "pages": 1
+ },
+ "patient": {
+  "name": "TRẦN THỊ VÍ DỤ",
+  "birth_year": 1985,
+  "sex": "female"
+ },
+ "facility": {
+  "name": "Phòng khám Đa khoa Ví Dụ",
+  "department": "Chẩn đoán hình ảnh"
+ },
+ "staff": {
+  "signed_by": "BS. Đỗ Thị Mẫu"
+ },
+ "dates": {
+  "performed": "2026-10-02"
+ },
+ "extracted_by": {
+  "agent": "claude-code",
+  "model": "claude-fable-5-2"
+ },
+ "study": {
+  "procedure": "X-QUANG NGỰC THẲNG",
+  "technique": "Phim thẳng, tư thế đứng",
+  "findings": "Hai trường phổi sáng đều, không thấy tổn thương nốt hay đám mờ. Bóng tim không to. Góc sườn hoành hai bên nhọn. Khung xương lồng ngực không thấy bất thường.",
+  "impression": "Hình ảnh tim phổi bình thường trên phim X-quang ngực thẳng.",
+  "key": "xr-chest-single"
+ }
+}

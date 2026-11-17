@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks, full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0            # scan every commit, not only the last one
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --redact --no-banner --exit-code 1 --verbose
+
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit tests (no network, no credentials, made-up documents)
+        run: python -m unittest discover -s tests -v
+
+  checks:
+    name: Catalog and FHIR checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: No data directory in the repository
+        run: test -z "$(git ls-files data)"
+      - name: JSON files parse
+        run: |
+          for f in .gemini/settings.json paperarchive/catalog/*.json tests/fixtures/*.json; do
+            python3 -m json.tool "$f" > /dev/null || { echo "invalid JSON: $f"; exit 1; }
+          done
+      - name: Map the fixtures to FHIR
+        run: python3 tools/fhir_fixtures.py "$RUNNER_TEMP/fhir"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tools/fhir-validate/package-lock.json
+      - name: FHIR resources validate (Medplum validator)
+        working-directory: tools/fhir-validate
+        run: |
+          npm ci --no-audit --no-fund
+          node validate.mjs "$RUNNER_TEMP/fhir"

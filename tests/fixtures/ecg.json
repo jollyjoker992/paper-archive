@@ -1,0 +1,16 @@
+{
+ "format": "paper-archive/extraction/1",
+ "document": {"type": "ecg", "language": "vi", "title": "ĐIỆN TÂM ĐỒ", "pages": 1},
+ "patient": {"name": "Tran Thi Vi Du", "birth_date": "1985-03-14", "sex": "female"},
+ "facility": {"name": "Phòng khám Đa khoa Ví Dụ", "department": "Thăm dò chức năng"},
+ "staff": {"signed_by": "BS. Phạm Văn Mẫu"},
+ "dates": {"performed": "2026-10-02T08:05:31"},
+ "extracted_by": {"agent": "claude-code", "model": "claude-fable-5-2"},
+ "ecg": {
+  "measurements": {"heart_rate": "72", "rr_interval": "833", "pr_interval": "156", "qrs_duration": "92", "qt_interval": "384", "qtc_interval": "421", "p_axis": "48", "qrs_axis": "-12", "t_axis": "35"},
+  "rhythm": "Nhịp xoang",
+  "machine_interpretation": "Sinus rhythm. Normal ECG.",
+  "conclusion": "Nhịp xoang đều 72 ck/ph. Trục trung gian. Điện tâm đồ trong giới hạn bình thường.",
+  "device": "12 chuyển đạo, 25 mm/s, 10 mm/mV"
+ }
+}

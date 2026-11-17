@@ -1,0 +1,433 @@
+{
+ "version": "0.2.0",
+ "loinc_checked": "2026-11-17",
+ "about": "Every LOINC code the mapper uses outside the analyte catalog: document and report types, ECG measurements, vital signs, narrative sections, imaging and endoscopy studies. tools/loinc_check.py checks each against the NLM LOINC API and fills in the display.",
+ "documents": {
+  "lab-report": {
+   "loinc": "11502-2",
+   "display": "Laboratory report"
+  },
+  "ecg": {
+   "loinc": "11524-6",
+   "display": "EKG study"
+  },
+  "ultrasound": {
+   "loinc": "18748-4",
+   "display": "Diagnostic imaging study"
+  },
+  "xray": {
+   "loinc": "18748-4",
+   "display": "Diagnostic imaging study"
+  },
+  "endoscopy": {
+   "loinc": "18751-8",
+   "display": "Endoscopy study"
+  },
+  "visit": {
+   "loinc": "34108-1",
+   "display": "Outpatient Note"
+  }
+ },
+ "ecg": {
+  "heart_rate": {
+   "loinc": "8867-4",
+   "display": "Heart rate",
+   "unit": "/min",
+   "range": [
+    20,
+    300
+   ]
+  },
+  "rr_interval": {
+   "loinc": "8637-1",
+   "display": "R-R interval by EKG",
+   "unit": "ms",
+   "range": [
+    200,
+    3000
+   ]
+  },
+  "pr_interval": {
+   "loinc": "8625-6",
+   "display": "P-R Interval",
+   "unit": "ms",
+   "range": [
+    50,
+    500
+   ]
+  },
+  "qrs_duration": {
+   "loinc": "8633-0",
+   "display": "QRS duration",
+   "unit": "ms",
+   "range": [
+    40,
+    300
+   ]
+  },
+  "qt_interval": {
+   "loinc": "8634-8",
+   "display": "Q-T interval",
+   "unit": "ms",
+   "range": [
+    200,
+    800
+   ]
+  },
+  "qtc_interval": {
+   "loinc": "8636-3",
+   "display": "Q-T interval corrected",
+   "unit": "ms",
+   "range": [
+    200,
+    800
+   ]
+  },
+  "p_axis": {
+   "loinc": "8626-4",
+   "display": "P wave axis",
+   "unit": "deg",
+   "range": [
+    -180,
+    180
+   ]
+  },
+  "qrs_axis": {
+   "loinc": "8632-2",
+   "display": "QRS axis",
+   "unit": "deg",
+   "range": [
+    -180,
+    180
+   ]
+  },
+  "t_axis": {
+   "loinc": "8638-9",
+   "display": "T wave axis",
+   "unit": "deg",
+   "range": [
+    -180,
+    180
+   ]
+  }
+ },
+ "narrative": {
+  "ecg_rhythm": {
+   "loinc": "8884-9",
+   "display": "Heart rate rhythm"
+  },
+  "ecg_impression": {
+   "loinc": "18844-1",
+   "display": "EKG impression Narrative"
+  },
+  "imaging_findings": {
+   "loinc": "18782-3",
+   "display": "Radiology Study observation (narrative)"
+  },
+  "imaging_impression": {
+   "loinc": "19005-8",
+   "display": "Radiology Imaging study [Impression] (narrative)"
+  },
+  "imaging_recommendation": {
+   "loinc": "18783-1",
+   "display": "Radiology Study recommendation (narrative)"
+  },
+  "endoscopy_findings": {
+   "loinc": "19805-1",
+   "display": "Endoscopy procedure Study observation Narrative"
+  },
+  "endoscopy_impression": {
+   "loinc": "59769-0",
+   "display": "Postprocedure diagnosis Narrative"
+  }
+ },
+ "studies": [
+  {
+   "key": "us-abdomen",
+   "type": "ultrasound",
+   "loinc": "24558-9",
+   "display": "US Abdomen",
+   "names": [
+    "Siêu âm ổ bụng",
+    "Siêu âm bụng",
+    "Siêu âm ổ bụng tổng quát",
+    "Siêu âm bụng tổng quát",
+    "Abdominal ultrasound"
+   ]
+  },
+  {
+   "key": "us-abdomen-pelvis",
+   "type": "ultrasound",
+   "loinc": "103901-5",
+   "display": "US Abdomen and Pelvis",
+   "names": [
+    "Siêu âm bụng và tiểu khung",
+    "Siêu âm ổ bụng - tiểu khung"
+   ]
+  },
+  {
+   "key": "us-pelvis",
+   "type": "ultrasound",
+   "loinc": "24869-0",
+   "display": "US Pelvis",
+   "names": [
+    "Siêu âm tiểu khung",
+    "Siêu âm phụ khoa",
+    "Siêu âm tử cung phần phụ",
+    "Pelvic ultrasound"
+   ]
+  },
+  {
+   "key": "us-kidney",
+   "type": "ultrasound",
+   "loinc": "38036-0",
+   "display": "US Kidney",
+   "names": [
+    "Siêu âm thận",
+    "Siêu âm hệ tiết niệu",
+    "Renal ultrasound"
+   ]
+  },
+  {
+   "key": "us-thyroid",
+   "type": "ultrasound",
+   "loinc": "25010-0",
+   "display": "US Thyroid gland",
+   "names": [
+    "Siêu âm tuyến giáp",
+    "Thyroid ultrasound"
+   ]
+  },
+  {
+   "key": "us-neck",
+   "type": "ultrasound",
+   "loinc": "24842-7",
+   "display": "US Neck",
+   "names": [
+    "Siêu âm vùng cổ",
+    "Siêu âm phần mềm vùng cổ",
+    "Neck ultrasound"
+   ]
+  },
+  {
+   "key": "us-breast",
+   "type": "ultrasound",
+   "loinc": "24601-7",
+   "display": "US Breast",
+   "names": [
+    "Siêu âm tuyến vú",
+    "Siêu âm vú",
+    "Breast ultrasound"
+   ]
+  },
+  {
+   "key": "us-heart",
+   "type": "ultrasound",
+   "loinc": "42148-7",
+   "display": "US Heart",
+   "names": [
+    "Siêu âm tim",
+    "Siêu âm Doppler tim",
+    "Echocardiography",
+    "Echocardiogram"
+   ]
+  },
+  {
+   "key": "xr-chest",
+   "type": "xray",
+   "loinc": "30745-4",
+   "display": "XR Chest Views",
+   "names": [
+    "X-quang ngực",
+    "X-quang tim phổi",
+    "X-quang phổi",
+    "Chụp X-quang ngực",
+    "Chest X-ray"
+   ],
+   "use": "Chest radiograph when the number or kind of views is not stated, or does not match a more specific entry."
+  },
+  {
+   "key": "xr-chest-single",
+   "type": "xray",
+   "loinc": "36554-4",
+   "display": "XR Chest Single view",
+   "names": [
+    "X-quang ngực thẳng",
+    "X-quang tim phổi thẳng",
+    "X-quang phổi thẳng"
+   ],
+   "use": "One frontal film ('thẳng') with no statement of PA or AP."
+  },
+  {
+   "key": "xr-chest-2v",
+   "type": "xray",
+   "loinc": "36643-5",
+   "display": "XR Chest 2 Views",
+   "names": [
+    "X-quang ngực thẳng nghiêng",
+    "X-quang tim phổi thẳng nghiêng"
+   ]
+  },
+  {
+   "key": "xr-chest-pa-lat",
+   "type": "xray",
+   "loinc": "42272-5",
+   "display": "XR Chest PA and Lateral",
+   "names": [
+    "Chest X-ray PA and lateral"
+   ],
+   "use": "Only when the paper states PA and lateral."
+  },
+  {
+   "key": "xr-lumbar-spine",
+   "type": "xray",
+   "loinc": "24972-2",
+   "display": "XR Lumbar spine Views",
+   "names": [
+    "X-quang cột sống thắt lưng",
+    "X-quang cột sống thắt lưng thẳng nghiêng"
+   ]
+  },
+  {
+   "key": "xr-knee",
+   "type": "xray",
+   "loinc": "28565-0",
+   "display": "XR Knee Views",
+   "names": [
+    "X-quang khớp gối",
+    "X-quang khớp gối thẳng nghiêng"
+   ]
+  },
+  {
+   "key": "xr-chest-pa-upright",
+   "type": "xray",
+   "loinc": "24648-8",
+   "display": "XR Chest PA upright",
+   "names": [
+    "X-quang ngực thẳng đứng sau trước",
+    "Chest PA"
+   ],
+   "use": "Only when the paper states an upright postero-anterior film ('đứng', 'sau - trước', 'Chest PA')."
+  },
+  {
+   "key": "colonoscopy",
+   "type": "endoscopy",
+   "loinc": "18746-8",
+   "display": "Colonoscopy study",
+   "names": [
+    "Nội soi đại tràng",
+    "Nội soi đại trực tràng",
+    "Colonoscopy",
+    "Conlonoscopy"
+   ]
+  }
+ ],
+ "vitals": {
+  "pulse": {
+   "loinc": "8867-4",
+   "display": "Heart rate",
+   "unit": "/min",
+   "range": [
+    20,
+    300
+   ]
+  },
+  "blood_pressure": {
+   "loinc": "85354-9",
+   "display": "Blood pressure panel with all children optional",
+   "unit": "mm[Hg]"
+  },
+  "systolic": {
+   "loinc": "8480-6",
+   "display": "Systolic blood pressure",
+   "unit": "mm[Hg]",
+   "range": [
+    40,
+    300
+   ]
+  },
+  "diastolic": {
+   "loinc": "8462-4",
+   "display": "Diastolic blood pressure",
+   "unit": "mm[Hg]",
+   "range": [
+    20,
+    200
+   ]
+  },
+  "temperature": {
+   "loinc": "8310-5",
+   "display": "Body temperature",
+   "unit": "Cel",
+   "range": [
+    30,
+    45
+   ]
+  },
+  "height": {
+   "loinc": "8302-2",
+   "display": "Body height",
+   "unit": "cm",
+   "range": [
+    30,
+    250
+   ]
+  },
+  "weight": {
+   "loinc": "29463-7",
+   "display": "Body weight",
+   "unit": "kg",
+   "range": [
+    1,
+    400
+   ]
+  },
+  "bmi": {
+   "loinc": "39156-5",
+   "display": "Body mass index (BMI) [Ratio]",
+   "unit": "kg/m2",
+   "range": [
+    5,
+    100
+   ]
+  }
+ },
+ "visit_sections": {
+  "reason": {
+   "loinc": "10154-3",
+   "display": "Chief complaint Narrative - Reported"
+  },
+  "medications": {
+   "loinc": "10160-0",
+   "display": "History of Medication use Narrative"
+  },
+  "family_history": {
+   "loinc": "10157-6",
+   "display": "History of family member diseases note"
+  },
+  "past_history": {
+   "loinc": "11348-0",
+   "display": "History of Past illness note"
+  },
+  "allergies": {
+   "loinc": "48765-2",
+   "display": "Allergies and adverse reactions Document"
+  },
+  "examination": {
+   "loinc": "29545-1",
+   "display": "Physical findings note"
+  },
+  "tests": {
+   "loinc": "30954-2",
+   "display": "Relevant diagnostic tests/laboratory data note"
+  },
+  "diagnosis": {
+   "loinc": "29548-5",
+   "display": "Diagnosis Narrative"
+  },
+  "advice": {
+   "loinc": "18776-5",
+   "display": "Plan of Care Note"
+  }
+ }
+}

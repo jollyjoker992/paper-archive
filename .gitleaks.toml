@@ -1,0 +1,8 @@
+# gitleaks: the default rules, plus one narrow exception. CI scans the full history with this file.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Catalog keys of tests (\"key\": \"egfr-ckd-epi-2021\") are names, not credentials"
+targetRules = ["generic-api-key"]
+paths = ['''(^|/)paperarchive/catalog/[a-z]+\.json$''']

@@ -1,0 +1,8 @@
+# Made-up person for the tests and the examples.
+[[person]]
+id = "example"
+name = "Trần Thị Ví Dụ"
+aliases = ["TRAN THI VI DU"]
+birth_date = "1985-03-14"
+sex = "female"
+timezone = "Asia/Ho_Chi_Minh"
