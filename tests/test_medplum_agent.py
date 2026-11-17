@@ -30,6 +30,14 @@ class Helpers(unittest.TestCase):
                                                      {"valueQuantity": {"value": 76, "unit": "mmHg"}}]}
         self.assertEqual(agent.value_of(bp), {"value": "118/76", "unit": "mmHg"})
 
+    def test_scan_link(self):
+        bid = "58aef3f5-42c1-4b9f-9c39-c5dff2bb07d8"
+        self.assertEqual(agent.binary_id(f"Binary/{bid}"), bid)
+        self.assertEqual(agent.binary_id(f"http://localhost:8303/storage/{bid}/39ab3129-f042-4692-9514-f133a551cdf3"
+                                         "?Expires=1&Signature=x"), bid)
+        self.assertIsNone(agent.binary_id(""))
+        self.assertIsNone(agent.binary_id("https://example.org/file.pdf"))
+
     def test_identifiers_and_ranges(self):
         composition = {"identifier": {"system": agent.system("paper-composition"), "value": "d_1"}}
         self.assertEqual(agent.identifier(composition, "paper-composition"), "d_1")

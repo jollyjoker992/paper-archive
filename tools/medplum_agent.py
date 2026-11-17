@@ -27,6 +27,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -298,12 +299,20 @@ def results(query: str, person: str | None, start: str | None, end: str | None) 
 
 # --- the scan ----------------------------------------------------------------------------------------
 
+def binary_id(url: str) -> str | None:
+    """The Binary id of an attachment link. The loader writes `Binary/<id>`; Medplum returns it as a signed
+    link to its storage (`<base>/storage/<id>/<version>?Expires=...&Signature=...`), whose host is the server's
+    public address and may not be reachable from here. The Binary is fetched through the API instead."""
+    match = re.match(r"(?:Binary/|.*/storage/)([0-9a-f-]{36})(?:[/?]|$)", url or "")
+    return match.group(1) if match else None
+
+
 def save_pdf(doc: str, out: str | None) -> Path:
     ref = find_document(doc)
-    url = ref["content"][0]["attachment"].get("url", "")
-    if not url.startswith("Binary/"):
+    binary_ref = binary_id(ref["content"][0]["attachment"].get("url", ""))
+    if not binary_ref:
         fail("this document has no stored scan")
-    binary = get(f"/fhir/R4/{url}")
+    binary = get(f"/fhir/R4/Binary/{binary_ref}")
     target = Path(out) if out else CACHE_DIR / "pdf" / f"{identifier(ref, 'paper-document')}.pdf"
     write_private(target, base64.b64decode(binary["data"]))
     return target
