@@ -38,17 +38,30 @@ abnormal values marked by colour, a second column in other units), in Vietnamese
 
 ## Quick start
 
+Every command below is plain Python and runs without an agent. The only step an AI agent can take over is
+reading the paper (step 2); the code itself never calls a model or does OCR.
+
+**1. Take the scans in**
+
 ```sh
 mkdir -p data && cp people.example.toml data/people.toml     # who the archive is for; fill it in
-python3 paper_archive.py intake --person me ~/scans/lab-1.jpg ~/scans/lab-2.jpg
+python3 paper_archive.py intake --person me ~/scans/lab-1.jpg ~/scans/lab-2.jpg   # prints the document <id>
 ```
 
-Then ask your agent (Claude Code reads `AGENTS.md` and the `paper-archive` skill) to transcribe the document,
-or do the steps yourself:
+**2. Transcribe the paper into `extraction.json`**: either way works.
+
+- *With an agent*: ask it to transcribe the document. Claude Code reads `AGENTS.md` and the
+  `paper-archive` skill, reads the page images, writes `extraction.json` and runs `validate` until it is clean.
+- *By hand*: start from the empty form, type in what is printed, then validate:
+
+  ```sh
+  python3 paper_archive.py template lab-report > data/documents/<id>/extraction.json   # fill in
+  python3 paper_archive.py validate <id>
+  ```
+
+**3. Check, approve and load**: you do this part either way.
 
 ```sh
-python3 paper_archive.py template lab-report > data/documents/<id>/extraction.json   # fill in
-python3 paper_archive.py validate <id>
 python3 paper_archive.py review <id>          # compare with the paper
 python3 paper_archive.py approve <id> --by "Your Name"
 python3 paper_archive.py map
