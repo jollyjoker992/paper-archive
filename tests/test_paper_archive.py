@@ -883,8 +883,12 @@ class Loading(unittest.TestCase):
         self.assertEqual(len(state["resources"]), 2 + 2 + 12 + 2 + 27)
         sent = next(r for r in state["resources"].values() if r["resourceType"] == "DocumentReference")
         self.assertTrue(sent["content"][0]["attachment"]["url"].startswith("Binary/b"))
-        self.assertEqual(self.load()["unchanged"], ["shared", ecg.id, lab.id])
+        saved = (self.root / "fhir" / "load-manifest.json").read_bytes()
+        with unittest.mock.patch.object(load.store, "now_iso", return_value="2099-01-01T00:00:00+00:00"):
+            self.assertEqual(self.load()["unchanged"], ["shared", ecg.id, lab.id])
         self.assertEqual(len(state["binaries"]), 2)
+        # Nothing to load: the manifest is not rewritten (the backup would upload a new copy of it).
+        self.assertEqual((self.root / "fhir" / "load-manifest.json").read_bytes(), saved)
         # The owner edits the ECG transcription: it is unapproved, so it leaves the server.
         changed = copy.deepcopy(fixture("ecg"))
         changed["ecg"]["rhythm"] = "Nhịp xoang chậm"

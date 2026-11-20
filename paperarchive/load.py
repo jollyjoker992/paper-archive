@@ -161,10 +161,19 @@ class Loader:
             else:
                 log.warning("Server project changed (%s -> %s): everything will be loaded again",
                             saved.get("project_id"), project_id)
+        self._saved = self._content() if self.manifest_path.is_file() else None
+
+    def _content(self) -> str:
+        return json.dumps({k: v for k, v in self.manifest.items() if k != "updated_at"}, sort_keys=True)
 
     def save(self) -> None:
+        """Write the manifest only when it changed: a run with nothing to load leaves the file as it was,
+        so the backup (which names this file by its hash) has nothing new to upload."""
+        if self._content() == self._saved:
+            return
         self.manifest["updated_at"] = store.now_iso()
         store.write_json(self.manifest_path, self.manifest)
+        self._saved = self._content()
 
     def load_batch(self, name: str, ndjson: Path, previous: dict, keep: frozenset = frozenset()) -> dict:
         resources = [json.loads(line) for line in ndjson.read_text(encoding="utf-8").splitlines() if line.strip()]
