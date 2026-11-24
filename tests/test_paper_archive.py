@@ -27,6 +27,17 @@ def fixture(name: str) -> dict:
     return json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def single_lead(leads=1) -> dict:
+    """A one-lead rhythm strip (a handheld recorder): heart rate and the device's text only."""
+    doc = fixture("ecg")
+    doc["document"]["title"] = "Bản ghi điện tim"
+    doc["ecg"] = {"measurements": {"heart_rate": "68"}, "leads": leads, "machine_interpretation": "Sinus rhythm.",
+                  "device": "Lead I, 25 mm/s, 10 mm/mV"}
+    if leads is None:
+        del doc["ecg"]["leads"]
+    return doc
+
+
 def codes(issues, level=None):
     return sorted({i["code"] for i in issues if level is None or i["level"] == level})
 
@@ -257,6 +268,19 @@ class Rules(unittest.TestCase):
         self.assertIn("E-IMPLAUSIBLE", codes(check(doc)[0]))
         doc["ecg"]["measurements"].update(heart_rate="72 bpm")
         self.assertIn("E-VALUE-NOT-NUMBER", codes(check(doc)[0]))
+
+    def test_ecg_leads(self):
+        doc = fixture("ecg")
+        doc["ecg"]["leads"] = 5
+        self.assertIn("E-ECG-LEADS", codes(check(doc)[0], "error"))
+        doc["ecg"]["leads"] = "12"                                      # a count, not the printed words
+        self.assertEqual(codes(check(doc)[0], "error"), ["E-SCHEMA"])
+        doc["ecg"]["leads"] = 1                                         # one lead printed with an axis
+        self.assertEqual(codes(check(doc)[0], "warning"), ["W-ECG-LEADS"])
+        doc = single_lead()
+        self.assertEqual(codes(check(doc)[0], "error") + codes(check(doc)[0], "warning"), [])
+        del doc["ecg"]["leads"]                                         # older transcriptions have no count
+        self.assertEqual(codes(check(doc)[0], "error"), [])
 
     def test_imaging(self):
         doc = fixture("ultrasound")
@@ -594,7 +618,12 @@ class Archive(unittest.TestCase):
                                                             "system": "http://unitsofmeasure.org", "code": "deg"})
         self.assertEqual(ecg["heart-rate"]["code"]["coding"][0]["code"], "8867-4")
         self.assertEqual(ecg["heart-rate"]["effectiveDateTime"], "2026-10-02T08:05:31+07:00")
-        self.assertIn("method", ecg["machine-interpretation"])
+        self.assertEqual(ecg["machine-interpretation"]["method"]["text"],
+                         "Automated interpretation printed by the ECG device (ECG, 12 leads)")
+        self.assertEqual(ecg["heart-rate"]["method"]["text"], "ECG, 12 leads")
+        self.assertEqual(ecg["heart-rate"]["device"]["display"], "12 chuyển đạo, 25 mm/s, 10 mm/mV")
+        report = next(r for r in self.resources(docs[0]) if r["resourceType"] == "DiagnosticReport")
+        self.assertEqual(report["code"]["text"], "ĐIỆN TÂM ĐỒ (12 leads)")
         us = self.resources(docs[1])
         self.assertIn("extension", us[0])                               # who transcribed, who approved
         self.assertEqual(us[1]["code"]["coding"][0]["code"], "24558-9")
@@ -603,6 +632,27 @@ class Archive(unittest.TestCase):
         xr = self.resources(docs[2])
         self.assertEqual(xr[1]["effectiveDateTime"], "2026-10-02")
         self.assertNotIn("issued", xr[1])
+
+    def test_single_lead_ecg(self):
+        older = single_lead(leads=None)                                 # another day, before the count was kept
+        older["dates"]["performed"] = "2026-09-12T19:40:00"
+        older["ecg"]["measurements"]["heart_rate"] = "74"
+        one, unknown = self.add("ecg", content=single_lead()), self.add("ecg", content=older, photo="-older")
+        self.map()
+        obs = self.by_slug(one)
+        self.assertEqual(sorted(obs), ["heart-rate", "machine-interpretation"])
+        self.assertEqual(obs["heart-rate"]["method"]["text"], "ECG, 1 lead")
+        self.assertEqual(obs["machine-interpretation"]["method"]["text"],
+                         "Automated interpretation printed by the ECG device (ECG, 1 lead)")
+        report = next(r for r in self.resources(one) if r["resourceType"] == "DiagnosticReport")
+        self.assertEqual(report["code"]["text"], "Bản ghi điện tim (1 lead)")
+        self.assertEqual(report["conclusion"], "Sinus rhythm.")
+        obs = self.by_slug(unknown)                                     # no count on the paper: none is made up
+        self.assertNotIn("method", obs["heart-rate"])
+        self.assertEqual(obs["machine-interpretation"]["method"]["text"],
+                         "Automated interpretation printed by the ECG device")
+        report = next(r for r in self.resources(unknown) if r["resourceType"] == "DiagnosticReport")
+        self.assertEqual(report["code"]["text"], "Bản ghi điện tim")
 
     def by_slug(self, doc):
         return {r["identifier"][0]["value"].split("/", 1)[1]: r for r in self.resources(doc)

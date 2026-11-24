@@ -51,8 +51,9 @@ A list of rows:
 ## `ecg`
 
 `measurements` (`heart_rate`, `rr_interval`, `pr_interval`, `qrs_duration`, `qt_interval`, `qtc_interval`,
-`p_axis`, `qrs_axis`, `t_axis`: printed numbers, /min, ms, degrees), `rhythm`, `machine_interpretation`,
-`conclusion`, `device`.
+`p_axis`, `qrs_axis`, `t_axis`: printed numbers, /min, ms, degrees), `leads` (how many leads the recording has,
+a number: 1, 2, 3, 6, 12 or 15, only when the paper says it), `rhythm`, `machine_interpretation`, `conclusion`,
+`device`.
 
 ## `study` (ultrasound, xray, endoscopy)
 

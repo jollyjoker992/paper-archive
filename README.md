@@ -21,7 +21,7 @@ without a person having compared the review sheet with the paper.
 | Document | Becomes |
 |---|---|
 | Blood and urine test reports | `DiagnosticReport` + one `Observation` per result (LOINC, UCUM, printed range and flag) |
-| ECG | `DiagnosticReport` + printed measurements and conclusion |
+| ECG (12-lead, or a one-lead rhythm strip) | `DiagnosticReport` + printed measurements, conclusion and lead count |
 | Ultrasound, echocardiography, X-ray | `DiagnosticReport` + findings, impression, named measurements |
 | Endoscopy | the same, with endoscopy codes |
 | Clinic visit note | `Encounter`, `Composition` (sections as printed), `Condition` (the diagnosis) |

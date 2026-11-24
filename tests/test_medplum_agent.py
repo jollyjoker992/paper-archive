@@ -30,6 +30,14 @@ class Helpers(unittest.TestCase):
                                                      {"valueQuantity": {"value": 76, "unit": "mmHg"}}]}
         self.assertEqual(agent.value_of(bp), {"value": "118/76", "unit": "mmHg"})
 
+    def test_how_an_ecg_was_recorded(self):
+        obs = {"code": {"text": None, "coding": [{"system": agent.LOINC, "code": "8867-4", "display": "Heart rate"}]},
+               "valueQuantity": {"value": 68, "unit": "/min"}, "method": {"text": "ECG, 1 lead"},
+               "device": {"display": "Lead I, 25 mm/s"}, "category": [{"coding": [{"code": "procedure"}]}]}
+        self.assertEqual(agent.result_row(obs), {"name": "Heart rate", "loinc": "8867-4", "value": 68, "unit": "/min",
+                                                  "method": "ECG, 1 lead", "device": "Lead I, 25 mm/s",
+                                                  "category": "procedure"})
+
     def test_scan_link(self):
         bid = "58aef3f5-42c1-4b9f-9c39-c5dff2bb07d8"
         self.assertEqual(agent.binary_id(f"Binary/{bid}"), bid)

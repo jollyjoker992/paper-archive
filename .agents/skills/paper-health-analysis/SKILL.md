@@ -37,7 +37,10 @@ test (`hba1c`, `egfr`, `urea`, `alt`, ...).
    across units; convert only if asked, and say you converted.
 5. **Reference ranges differ between labs.** Compare a value with the range printed on its own report.
 6. **Imaging, ECG, endoscopy, visit and procedure notes** are text: quote the conclusion (impression, diagnosis)
-   verbatim, then summarise the findings in plain words if asked, without adding findings. A procedure note
+   verbatim, then summarise the findings in plain words if asked, without adding findings. An ECG's `method`
+   says how it was recorded (`ECG, 1 lead`): name a one-lead or few-lead recording as such, never as "an ECG"
+   alone, because it shows the rhythm, not what a 12-lead ECG shows. A `method` that says `Automated
+   interpretation` is the device's text, not the doctor's. No `method`: the paper did not say. A procedure note
    (`document <id>` → `procedure`) says what was done, when, by whom and for which diagnosis.
 7. **Vaccinations** have three states; never merge them. `given` (the owner confirmed it at review),
    `not given`, and `ordered, not known whether given` (a slip whose shot nobody confirmed): only `given`

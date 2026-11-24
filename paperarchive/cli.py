@@ -18,7 +18,7 @@ def template(dtype: str) -> dict:
            "alt_value": "", "alt_reference": "", "page": 1}
     body = {
         "lab-report": {"results": [row]},
-        "ecg": {"ecg": {"measurements": {k: "" for k in extraction.ECG["measurements"]}, "rhythm": "",
+        "ecg": {"ecg": {"measurements": {k: "" for k in extraction.ECG["measurements"]}, "leads": None, "rhythm": "",
                         "machine_interpretation": "", "conclusion": "", "device": ""}},
         "visit": {"visit": {k: "" for k in extraction.VISIT_SECTIONS}},
         "procedure": {"procedure": {k: "" for k in extraction.PROCEDURE}},
@@ -147,7 +147,7 @@ def review_compact(doc: store.Document, issues: list[dict], parsed: dict) -> str
     elif parsed["type"] == "ecg" and "ecg" in x:
         spec = catalog.codes()["ecg"]
         out += [f"{k}: {v['text']} {spec[k]['unit']}" for k, v in parsed["ecg"].items()]
-        out += [f"{k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion") if k in x["ecg"]]
+        out += [f"{k}: {x['ecg'][k]}" for k in ("leads", "rhythm", "machine_interpretation", "conclusion") if k in x["ecg"]]
     elif parsed["type"] in ("visit", "procedure") and parsed["type"] in x:
         out += [f"{k}: {v}" for k, v in x[parsed["type"]].items()]
     elif parsed["type"] == "vaccination" and "vaccination" in x:
@@ -185,7 +185,8 @@ def cmd_review(args, root):
     elif parsed["type"] == "ecg" and "ecg" in x:
         spec = catalog.codes()["ecg"]
         out += [""] + [f"- {k}: {v['text']} {spec[k]['unit']}" for k, v in parsed["ecg"].items()]
-        out += [f"- {k}: {x['ecg'][k]}" for k in ("rhythm", "machine_interpretation", "conclusion", "device") if k in x["ecg"]]
+        out += [f"- {k}: {x['ecg'][k]}" for k in ("leads", "rhythm", "machine_interpretation", "conclusion", "device")
+                if k in x["ecg"]]
     elif parsed["type"] in ("visit", "procedure") and parsed["type"] in x:
         out += [""] + [f"- {k}: {v}" for k, v in x[parsed["type"]].items()]
     elif parsed["type"] == "vaccination" and "vaccination" in x:

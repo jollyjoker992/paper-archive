@@ -196,21 +196,33 @@ class DocumentMapper:
         for row in self.parsed["results"]:
             self.row(row)
 
+    @property
+    def leads(self) -> str | None:
+        """'1 lead', '12 leads': the recording's lead count when the paper says it."""
+        leads = self.x.get("ecg", {}).get("leads")
+        return f"{leads} lead" + ("" if leads == 1 else "s") if leads else None
+
     def ecg(self) -> str | None:
         spec, ecg = catalog.codes()["ecg"], self.x["ecg"]
+        recording = f"ECG, {self.leads}" if self.leads else None
+        method = {"text": recording} if recording else None
+        device = {"display": ecg["device"]} if "device" in ecg else None
         for key, value in self.parsed["ecg"].items():
             self.observation(key.replace("_", "-"), loinc(spec[key]), valueQuantity={
                 "value": number(value["number"], value["decimals"]), "unit": spec[key]["unit"], "system": UCUM,
-                "code": spec[key]["unit"]})
+                "code": spec[key]["unit"]}, method=method, device=device)
         narrative = catalog.codes()["narrative"]
         if "rhythm" in ecg:
-            self.observation("rhythm", loinc(narrative["ecg_rhythm"]), valueString=ecg["rhythm"])
+            self.observation("rhythm", loinc(narrative["ecg_rhythm"]), valueString=ecg["rhythm"], method=method,
+                             device=device)
         if "conclusion" in ecg:
-            self.observation("conclusion", loinc(narrative["ecg_impression"]), valueString=ecg["conclusion"])
+            self.observation("conclusion", loinc(narrative["ecg_impression"]), valueString=ecg["conclusion"],
+                             method=method, device=device)
         if "machine_interpretation" in ecg:
+            automated = "Automated interpretation printed by the ECG device"
             self.observation("machine-interpretation", loinc(narrative["ecg_impression"]),
-                             valueString=ecg["machine_interpretation"],
-                             method={"text": "Automated interpretation printed by the ECG device"})
+                             valueString=ecg["machine_interpretation"], device=device,
+                             method={"text": f"{automated} ({recording})" if recording else automated})
         return ecg.get("conclusion") or ecg.get("machine_interpretation")
 
     def study(self) -> str | None:
@@ -449,7 +461,8 @@ class DocumentMapper:
         report = {
             "resourceType": "DiagnosticReport", "identifier": self.ident("paper-report", self.doc.id),
             "status": "final", "category": [category],
-            "code": loinc(study or catalog.codes()["documents"][self.type], title),
+            "code": loinc(study or catalog.codes()["documents"][self.type],
+                          f"{title} ({self.leads})" if self.type == "ecg" and self.leads else title),
             "subject": self.patient, "effectiveDateTime": self.effective}
         if self.issued:
             report["issued"] = self.issued

@@ -1,4 +1,4 @@
-# FHIR mapping (version 0.4.0)
+# FHIR mapping (version 0.5.0)
 
 How an approved transcription becomes FHIR R4 resources. This is what `paper_archive.py map` implements
 (`paperarchive/fhir.py`). FHIR is a view: it is rebuilt from `extraction.json` and the catalog, and the scan
@@ -107,6 +107,12 @@ QRS 8633-0, QT 8634-8, QTc 8636-3 (`ms`), P/QRS/T axis 8626-4 / 8632-2 / 8638-9 
 the conclusion 18844-1 are `valueString`. A device's automatic interpretation is a second 18844-1
 Observation with `method.text` saying so. `DiagnosticReport.conclusion` is the doctor's conclusion, else the
 device's. The tracing itself is only in the PDF.
+
+How it was recorded, when the paper says: the lead count (`ecg.leads`) is `method.text` of every ECG
+Observation (`ECG, 1 lead`, `ECG, 12 leads`; the automatic interpretation's becomes `Automated interpretation
+printed by the ECG device (ECG, 1 lead)`) and is added to `DiagnosticReport.code.text` (`ĐIỆN TÂM ĐỒ (1 lead)`),
+so a reader of the report alone can tell a one-lead rhythm strip from a 12-lead ECG. The printed settings line
+(`ecg.device`) is `Observation.device.display`. Without a lead count none of these is added: nothing says 12.
 
 ### Ultrasound, X-ray, endoscopy
 

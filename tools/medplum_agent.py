@@ -236,6 +236,10 @@ def value_of(obs: dict) -> dict:
         out["reference"] = obs["referenceRange"][0].get("text")
     if obs.get("interpretation"):
         out["interpretation"] = obs["interpretation"][0]["coding"][0].get("display")
+    if (obs.get("method") or {}).get("text"):
+        out["method"] = obs["method"]["text"]               # e.g. "ECG, 1 lead", the device's own interpretation
+    if (obs.get("device") or {}).get("display"):
+        out["device"] = obs["device"]["display"]
     return out
 
 

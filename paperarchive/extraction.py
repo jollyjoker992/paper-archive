@@ -23,7 +23,9 @@ ROW = {"section": S, "name": (S, True), "analyte": S, "value": (S, True), "unit"
 VITALS = {k: S for k in ("pulse", "blood_pressure", "temperature", "height", "weight", "bmi")}
 ECG = {"measurements": {k: S for k in ("heart_rate", "rr_interval", "pr_interval", "qrs_duration", "qt_interval",
                                        "qtc_interval", "p_axis", "qrs_axis", "t_axis")},
-       "rhythm": S, "machine_interpretation": S, "conclusion": S, "device": S}
+       "leads": I, "rhythm": S, "machine_interpretation": S, "conclusion": S, "device": S}
+ECG_LEADS = (1, 2, 3, 6, 12, 15)         # recordings: one lead (a watch, a handheld), 2-3 (Holter), 6, 12, 15
+AXES = ("p_axis", "qrs_axis", "t_axis")
 STUDY = {"key": S, "procedure": (S, True), "indication": S, "technique": S, "findings": (S, True),
          "measurements": [ROW], "impression": S, "recommendation": S}
 VISIT_SECTIONS = ("reason", "medications", "family_history", "past_history", "allergies", "examination", "tests",
@@ -651,6 +653,14 @@ def _check_ecg(ecg: dict, issues: list) -> dict:
                                 f"{number['number']:g} {spec[key]['unit']} is outside {low} to {high}"))
             continue
         values[key] = {"number": number["number"], "decimals": number["decimals"], "text": text}
+    leads = ecg.get("leads")
+    if isinstance(leads, int) and leads not in ECG_LEADS:
+        issues.append(issue(ERROR, "E-ECG-LEADS", "ecg.leads",
+                            f"{leads!r} is not a lead count of an ECG ({', '.join(map(str, ECG_LEADS))})"))
+    elif leads == 1:
+        for key in (k for k in AXES if k in values):
+            issues.append(issue(WARNING, "W-ECG-LEADS", f"ecg.measurements.{key}",
+                                "one lead gives no axis: re-read the paper (another number, or more leads?)"))
     if not values and not any(k in ecg for k in ("rhythm", "conclusion", "machine_interpretation")):
         issues.append(issue(ERROR, "E-EMPTY", "ecg", "an ECG has measurements, a rhythm or a conclusion"))
     if "conclusion" not in ecg and "machine_interpretation" not in ecg:

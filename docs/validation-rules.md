@@ -89,6 +89,8 @@ interpretation, only `W-FLAG-MISSING`.
 |---|---|
 | `E-VALUE-NOT-NUMBER`, `E-IMPLAUSIBLE` | ECG measurement not a number or outside its range (`codes.json` → `ecg`). |
 | `W-CROSS-CHECK` | RR does not fit the heart rate; QTc fits no usual correction (Bazett, Fridericia, Framingham, Hodges, ±25 ms) of QT at that rate. |
+| `E-ECG-LEADS` | `ecg.leads` is not 1, 2, 3, 6, 12 or 15. |
+| `W-ECG-LEADS` | An axis transcribed for a one-lead recording, which cannot give one: re-read the number or the lead count. |
 | `W-NO-CONCLUSION` | No conclusion/impression/diagnosis transcribed (a procedure note: neither `diagnosis` nor `postoperative_diagnosis`). |
 | `E-STUDY-UNKNOWN`, `E-STUDY-TYPE` | `study.key` not in the catalog, or of another document type. |
 | `W-STUDY-AVAILABLE` | No key although the catalog has the study. |
